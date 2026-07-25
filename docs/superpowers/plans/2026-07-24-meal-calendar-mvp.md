@@ -6,7 +6,7 @@
 
 **Architecture:** A React/TypeScript/Vite frontend and an ASP.NET Core minimal API remain separate source projects. The API persists one `ScheduleDay` per absolute ISO date through EF Core and SQLite, serves mounted meal images and the compiled PWA, and applies destination-replacement moves transactionally. TanStack Query owns browser server state, while pure calendar and drag-intent functions keep the React interaction understandable and testable.
 
-**Tech Stack:** .NET 10, ASP.NET Core, EF Core SQLite, xUnit, `WebApplicationFactory`, React, TypeScript, Vite, Vitest, Testing Library, `dnd-kit`, TanStack Query, `vite-plugin-pwa`, Docker Compose.
+**Tech Stack:** .NET 10, ASP.NET Core, EF Core SQLite, xUnit, `WebApplicationFactory`, React, TypeScript, Vite, Vitest, Testing Library, `dnd-kit`, TanStack Query, a native service worker generated at build time, Docker Compose.
 
 ## Global Constraints
 
@@ -21,6 +21,14 @@
 - Keep authentication outside the MVP and preserve all listed MVP non-goals.
 - Optimize for a landscape wall tablet, large touch targets, touch dragging, and a responsive phone layout with no hover-only actions.
 - Use a Sunday-first, six-week month grid whose adjacent-month days remain droppable.
+
+## Dependency Security Amendment — 2026-07-24
+
+The implementation originally planned `vite-plugin-pwa`. npm's current audit data reports high-severity dependency chains in both available Workbox 7.4 patch releases: 7.4.0 through `@surma/rollup-plugin-off-main-thread`, and 7.4.1 through its replacement `@trickfilm400/rollup-plugin-off-main-thread`. Both chains reach vulnerable EJS/Jake/Filelist/Minimatch packages, and 7.4.0 also reaches a vulnerable `serialize-javascript`.
+
+Because no audit-clean published Workbox release satisfies the plugin, Task 7 must not use `vite-plugin-pwa`, Workbox, or fragile major-version overrides of transitive build packages. It will instead generate a small native service worker after Vite builds. The generator uses Node standard libraries, Vite's build manifest, and a checked-in template. This preserves installability, offline application-shell caching, API cache exclusion, and a prompted update lifecycle while reducing dependencies. `sharp` must be at least 0.35.3, which contains the upstream libvips security fixes.
+
+This amendment supersedes conflicting `vite-plugin-pwa`, Workbox, or `virtual:pwa-register/react` instructions later in this plan.
 
 ---
 
@@ -58,7 +66,7 @@
 - `frontend/package.json`: scripts and runtime/test dependencies.
 - `frontend/package-lock.json`: deterministic dependency graph.
 - `frontend/tsconfig*.json`: browser and build TypeScript settings.
-- `frontend/vite.config.ts`: React, Vitest, and PWA configuration.
+- `frontend/vite.config.ts`: React, Vitest, development proxy, and build-manifest configuration.
 - `frontend/index.html`: application shell and metadata.
 - `frontend/public/icon.svg`: installable scalable application icon.
 - `frontend/src/main.tsx`: React and Query Client bootstrap.
@@ -83,8 +91,12 @@
 - `frontend/src/features/meal-planner/components/MealDugout.tsx`: reusable tray and removal target.
 - `frontend/src/features/meal-planner/components/ConnectionStatus.tsx`: connectivity, refresh, and mutation feedback.
 - `frontend/src/features/meal-planner/components/UpdatePrompt.tsx`: controlled service-worker activation.
+- `frontend/src/features/meal-planner/hooks/useServiceWorkerUpdate.ts`: native service-worker registration and waiting-worker lifecycle.
 - `frontend/src/features/meal-planner/MealPlannerPage.tsx`: visible month, DnD sensors, overlay, and command dispatch.
 - `frontend/scripts/generate-icons.mjs`: deterministic SVG-to-PNG PWA icon generation.
+- `frontend/scripts/generate-service-worker.mjs`: hash-aware application-shell service-worker generation.
+- `frontend/public/manifest.webmanifest`: installable application metadata.
+- `frontend/public/sw-template.js`: native service-worker behavior with build placeholders.
 - `frontend/public/pwa-192x192.png`: generated Chromium install icon.
 - `frontend/public/pwa-512x512.png`: generated large and maskable install icon.
 - `frontend/public/apple-touch-icon.png`: generated iOS home-screen icon.
@@ -443,7 +455,7 @@ Use scripts:
 }
 ```
 
-Add runtime dependencies for React, React DOM, `@dnd-kit/core`, and `@tanstack/react-query`; add development dependencies for Vite, TypeScript, React plugin, Vitest, jsdom, Testing Library, jest-dom, `vite-plugin-pwa`, and `sharp`.
+Add runtime dependencies for React, React DOM, `@dnd-kit/core`, and `@tanstack/react-query`; add development dependencies for Vite, TypeScript, React plugin, Vitest, jsdom, Testing Library, jest-dom, and `sharp` 0.35.3 or newer. Do not add `vite-plugin-pwa` or Workbox.
 
 Configure Vitest with `environment: "jsdom"` and `setupFiles: ["./src/test/setup.ts"]`. Configure the Vite development server to proxy `/api` and `/images` to `http://localhost:5000`.
 
@@ -734,15 +746,19 @@ git commit -m "feat: build draggable responsive meal planner"
 
 ---
 
-### Task 7: Installable PWA and Controlled Updates
+### Task 7: Installable Native PWA and Controlled Updates
 
 **Files:**
 - Modify: `frontend/vite.config.ts`
 - Create: `frontend/public/icon.svg`
+- Create: `frontend/public/manifest.webmanifest`
+- Create: `frontend/public/sw-template.js`
 - Create: `frontend/scripts/generate-icons.mjs`
+- Create: `frontend/scripts/generate-service-worker.mjs`
 - Generate: `frontend/public/pwa-192x192.png`
 - Generate: `frontend/public/pwa-512x512.png`
 - Generate: `frontend/public/apple-touch-icon.png`
+- Create: `frontend/src/features/meal-planner/hooks/useServiceWorkerUpdate.ts`
 - Create: `frontend/src/features/meal-planner/components/UpdatePrompt.tsx`
 - Modify: `frontend/src/App.tsx`
 - Modify: `frontend/src/styles.css`
@@ -750,58 +766,37 @@ git commit -m "feat: build draggable responsive meal planner"
 - Modify: `frontend/index.html`
 
 **Interfaces:**
-- Consumes: `virtual:pwa-register/react`.
+- Consumes: browser `navigator.serviceWorker` APIs and Vite's generated `.vite/manifest.json`.
 - Produces: installable manifest and an “Update available” prompt that activates the waiting service worker only after user action.
 
-- [ ] **Step 1: Configure manifest and prompt-mode service worker**
+- [ ] **Step 1: Generate icons, manifest, and a versioned native service worker**
 
 Create a simple plate-and-calendar `icon.svg`. Add a `generate:icons` package script backed by `scripts/generate-icons.mjs`, which uses `sharp` to render the SVG as 192×192, 512×512, and 180×180 PNG files before every build.
 
-Configure `VitePWA` with:
+Create `manifest.webmanifest` with the application name, short name, description, warm theme/background colors, standalone display, `/` start URL, and the generated 192- and 512-pixel PNG icons. Add manifest, theme-color, and apple-touch-icon links to `index.html`.
 
-```ts
-registerType: "prompt"
-includeAssets: [
-  "icon.svg",
-  "pwa-192x192.png",
-  "pwa-512x512.png",
-  "apple-touch-icon.png"
-]
-manifest: {
-  name: "Family Meal Calendar",
-  short_name: "Meals",
-  description: "A shared family meal-planning calendar",
-  theme_color: "#f6f1e7",
-  background_color: "#f6f1e7",
-  display: "standalone",
-  orientation: "any",
-  start_url: "/",
-  icons: [
-    {
-      src: "/pwa-192x192.png",
-      sizes: "192x192",
-      type: "image/png",
-      purpose: "any"
-    },
-    {
-      src: "/pwa-512x512.png",
-      sizes: "512x512",
-      type: "image/png",
-      purpose: "any maskable"
-    }
-  ]
-}
-```
+Enable `build.manifest` in Vite. `generate-service-worker.mjs` must read `dist/.vite/manifest.json`, collect the entry JavaScript/CSS assets, add `/`, `/index.html`, the web manifest, and generated icons, derive a cache version from a SHA-256 hash of that list, replace placeholders in `sw-template.js`, and write `dist/sw.js`.
 
-Use Workbox navigation fallback for the SPA shell, deny navigation fallback for `/api/`, and do not add API runtime caching. Add `<link rel="apple-touch-icon" href="/apple-touch-icon.png">` to `index.html`.
+The service-worker template must:
+
+- Precache only the generated application shell during installation.
+- Remain waiting instead of calling `skipWaiting()` automatically.
+- On `SKIP_WAITING`, call `self.skipWaiting()`.
+- On activation, delete older application-shell caches and claim clients.
+- Ignore non-GET and cross-origin requests.
+- Always use the network for `/api/*` and `/images/meals/*`.
+- Use network-first navigation with cached `/index.html` only as the offline fallback.
+- Use cache-first behavior only for the versioned precache entries.
 
 - [ ] **Step 2: Implement the update prompt**
 
-Use `useRegisterSW()` from `virtual:pwa-register/react`. Render a compact banner only when `needRefresh` is true. “Update now” calls `updateServiceWorker(true)`; “Later” sets `needRefresh` false. A service-worker registration error must be logged without breaking the calendar.
+`useServiceWorkerUpdate` registers `/sw.js` after page load with `updateViaCache: "none"`, detects an already waiting worker and newly installed updates, and exposes `needRefresh`, `activateUpdate`, and `dismissUpdate`. `activateUpdate` posts `SKIP_WAITING`, waits for `controllerchange`, and reloads once. `dismissUpdate` hides the current prompt without activating the worker. Registration errors are logged without breaking the calendar.
+
+`UpdatePrompt` renders a compact banner only when `needRefresh` is true. Its “Update now” and “Later” buttons call the hook actions.
 
 - [ ] **Step 3: Add an offline-shell build assertion**
 
-After building, assert that `frontend/dist/manifest.webmanifest`, `frontend/dist/sw.js`, all three PNG icons, and at least one Workbox asset exist.
+After building, assert that `frontend/dist/manifest.webmanifest`, `frontend/dist/sw.js`, all three PNG icons, and hashed Vite assets exist. Assert no Workbox bundle is present.
 
 Run:
 
@@ -810,7 +805,7 @@ npm --prefix frontend run build
 Get-ChildItem frontend/dist
 ```
 
-Expected: the manifest, service worker, application assets, and icon are present.
+Expected: the manifest, generated native service worker, application assets, and icons are present.
 
 - [ ] **Step 4: Commit PWA behavior**
 

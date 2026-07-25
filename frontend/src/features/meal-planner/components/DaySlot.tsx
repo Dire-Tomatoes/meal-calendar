@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import { fromDateKey } from "../model/calendar";
+import { fromDateKey, toDateKey } from "../model/calendar";
 import type { DateKey, DropTargetData, Meal } from "../model/types";
 import { DraggableMealTile } from "./DraggableMealTile";
 
@@ -23,6 +23,7 @@ export function DaySlot({ date, meal, isCurrentMonth }: DaySlotProps) {
       aria-label={`Meal slot for ${date}`}
       data-over={isOver || undefined}
       data-adjacent-month={!isCurrentMonth || undefined}
+      data-today={date === toDateKey(new Date()) || undefined}
     >
       <time dateTime={date}>{dayNumber}</time>
       {meal ? (

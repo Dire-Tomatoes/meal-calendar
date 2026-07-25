@@ -244,7 +244,8 @@ article:focus-visible {
 .calendar-panel .calendar-week > section {
   position: relative;
   min-width: 0;
-  min-height: clamp(5.5rem, 11vw, 9.2rem);
+  min-height: clamp(5.5rem, calc((100vh - 10rem) / 6), 9.2rem);
+  min-height: clamp(5.5rem, calc((100dvh - 10rem) / 6), 9.2rem);
   padding: 0.35rem;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -422,7 +423,8 @@ article:focus-visible {
 }
 
 .skeleton-grid i {
-  min-height: clamp(5.5rem, 11vw, 9.2rem);
+  min-height: clamp(5.5rem, calc((100vh - 10rem) / 6), 9.2rem);
+  min-height: clamp(5.5rem, calc((100dvh - 10rem) / 6), 9.2rem);
   border: 1px solid var(--surface);
   background: linear-gradient(110deg, #e8dfd1 30%, #f4ecdf 45%, #e8dfd1 60%);
   background-size: 220% 100%;

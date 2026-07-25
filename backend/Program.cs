@@ -39,6 +39,7 @@ if (Directory.Exists(mealImagesPath))
 }
 
 app.MapMealsEndpoints();
+app.MapScheduleEndpoints();
 app.MapGet("/api/health", () => Results.Ok());
 app.UseDefaultFiles();
 app.UseStaticFiles();

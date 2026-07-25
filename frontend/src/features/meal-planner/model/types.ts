@@ -8,7 +8,9 @@ export interface Meal {
   imageUrl: string | null;
 }
 
-export type Schedule = Record<DateKey, MealId>;
+export interface Schedule {
+  days: Record<DateKey, MealId>;
+}
 
 export interface DateRange {
   from: DateKey;

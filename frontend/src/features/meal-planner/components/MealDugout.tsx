@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import type { Meal } from "../model/types";
+import type { DropTargetData, Meal } from "../model/types";
 import { DraggableMealTile } from "./DraggableMealTile";
 
 interface MealDugoutProps {
@@ -7,9 +7,10 @@ interface MealDugoutProps {
 }
 
 export function MealDugout({ meals }: MealDugoutProps) {
+  const dropData = { target: "dugout" } satisfies DropTargetData;
   const { isOver, setNodeRef } = useDroppable({
     id: "dugout",
-    data: { target: "dugout" }
+    data: dropData
   });
 
   return (

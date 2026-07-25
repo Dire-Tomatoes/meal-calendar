@@ -48,7 +48,7 @@ describe("meal planner API client", () => {
 
     await expect(
       getSchedule({ from: "2026-07-19", to: "2026-08-29" })
-    ).resolves.toEqual({ "2026-07-24": "tacos" });
+    ).resolves.toEqual({ days: { "2026-07-24": "tacos" } });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/schedule?from=2026-07-19&to=2026-08-29",
       { headers: { Accept: "application/json" } }

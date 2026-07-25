@@ -68,11 +68,11 @@ export async function getMeals(): Promise<Meal[]> {
 }
 
 export async function getSchedule(range: DateRange): Promise<Schedule> {
-  const response = await request<{ days: Schedule }>(
+  const response = await request<Schedule>(
     `/api/v1/schedule?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
   );
 
-  return response?.days ?? {};
+  return response ?? { days: {} };
 }
 
 export function assignMeal(date: DateKey, mealId: MealId): Promise<undefined> {

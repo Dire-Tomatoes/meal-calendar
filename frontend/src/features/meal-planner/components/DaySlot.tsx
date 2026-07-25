@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { fromDateKey } from "../model/calendar";
-import type { DateKey, Meal } from "../model/types";
+import type { DateKey, DropTargetData, Meal } from "../model/types";
 import { DraggableMealTile } from "./DraggableMealTile";
 
 interface DaySlotProps {
@@ -10,9 +10,10 @@ interface DaySlotProps {
 }
 
 export function DaySlot({ date, meal, isCurrentMonth }: DaySlotProps) {
+  const dropData = { target: "day", date } satisfies DropTargetData;
   const { isOver, setNodeRef } = useDroppable({
     id: `day:${date}`,
-    data: { target: "day", date }
+    data: dropData
   });
   const dayNumber = fromDateKey(date).getDate();
 

@@ -1,0 +1,33 @@
+services:
+  meal-calendar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: meal-calendar:mvp
+    container_name: meal-calendar
+    ports:
+      - "8080:8080"
+    volumes:
+      - /mnt/user/appdata/meal-calendar/data:/app/data
+      - /mnt/user/appdata/meal-calendar/images:/app/images:ro
+    environment:
+      ConnectionStrings__MealCalendar: "Data Source=/app/data/meal-calendar.db"
+      MealImagesPath: /app/images
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -T
+        - "5"
+        - --spider
+        - http://127.0.0.1:8080/api/health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

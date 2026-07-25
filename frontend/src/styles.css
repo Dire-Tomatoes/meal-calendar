@@ -71,10 +71,69 @@ article:focus-visible {
   outline-offset: 3px;
 }
 
+.update-prompt {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  max-width: min(28rem, calc(100vw - 2rem));
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-lifted);
+}
+
+.update-prompt p {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+}
+
+.update-prompt p span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.update-prompt > div {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.update-prompt button:first-child {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
+}
+
+.update-prompt button:last-child {
+  background: transparent;
+}
+
 .planner-shell {
   width: min(100%, 1440px);
   margin: 0 auto;
   padding: clamp(0.7rem, 2vw, 1.5rem);
+}
+
+@media (max-width: 520px) {
+  .update-prompt {
+    right: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: 0.75rem;
+    max-width: none;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .update-prompt > div {
+    justify-content: flex-end;
+  }
 }
 
 .planner-shell > header {

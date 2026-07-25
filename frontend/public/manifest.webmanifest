@@ -1,0 +1,21 @@
+{
+  "name": "Family Meal Calendar",
+  "short_name": "Meal Calendar",
+  "description": "A family-friendly drag-and-drop meal calendar.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f1e7",
+  "theme_color": "#bd6c4d",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

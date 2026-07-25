@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Family Meal Calendar</title>
+  <rect width="512" height="512" rx="112" fill="#bd6c4d"/>
+  <circle cx="256" cy="276" r="158" fill="#fffaf2"/>
+  <circle cx="256" cy="276" r="112" fill="none" stroke="#d8cebd" stroke-width="18"/>
+  <path d="M174 108v82M338 108v82" fill="none" stroke="#fffaf2" stroke-linecap="round" stroke-width="30"/>
+  <rect x="142" y="125" width="228" height="150" rx="30" fill="#52725a"/>
+  <path d="M142 188h228" stroke="#dfeadd" stroke-width="16"/>
+  <g fill="#fffaf2">
+    <circle cx="190" cy="226" r="13"/>
+    <circle cx="236" cy="226" r="13"/>
+    <circle cx="282" cy="226" r="13"/>
+    <circle cx="328" cy="226" r="13"/>
+  </g>
+  <path d="M196 337c34 42 86 42 120 0" fill="none" stroke="#bd6c4d" stroke-linecap="round" stroke-width="22"/>
+</svg>

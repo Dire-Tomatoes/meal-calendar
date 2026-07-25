@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "prebuild": "npm run generate:icons",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/generate-service-worker.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview"

@@ -155,7 +155,7 @@ article:focus-visible {
   overflow: hidden;
 }
 
-.calendar-panel > section > [role="row"] {
+.calendar-panel .weekday-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
@@ -174,11 +174,15 @@ article:focus-visible {
 }
 
 .calendar-panel [role="grid"] {
+  display: block;
+}
+
+.calendar-panel .calendar-week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
-.calendar-panel [role="grid"] > section {
+.calendar-panel .calendar-week > section {
   position: relative;
   min-width: 0;
   min-height: clamp(5.5rem, 11vw, 9.2rem);
@@ -191,20 +195,20 @@ article:focus-visible {
     box-shadow 160ms ease;
 }
 
-.calendar-panel [role="grid"] > section:nth-child(7n) {
+.calendar-panel .calendar-week > section:last-child {
   border-right: 0;
 }
 
-.calendar-panel [role="grid"] > section:nth-last-child(-n + 7) {
+.calendar-panel .calendar-week:last-child > section {
   border-bottom: 0;
 }
 
-.calendar-panel [role="grid"] > section[data-adjacent-month] {
+.calendar-panel .calendar-week > section[data-adjacent-month] {
   background: #ede7dc;
   color: var(--text-muted);
 }
 
-.calendar-panel [role="grid"] > section[data-over],
+.calendar-panel .calendar-week > section[data-over],
 .planner-layout > aside[data-over] {
   background: var(--green-soft);
   box-shadow: inset 0 0 0 3px var(--green);
@@ -221,17 +225,17 @@ article:focus-visible {
   font-weight: 800;
 }
 
-.calendar-panel [role="grid"] > section[data-today] {
+.calendar-panel .calendar-week > section[data-today] {
   background: var(--terracotta-soft);
   box-shadow: inset 0 0 0 2px var(--terracotta);
 }
 
-.calendar-panel [role="grid"] > section[data-today] time {
+.calendar-panel .calendar-week > section[data-today] time {
   background: var(--terracotta);
   color: white;
 }
 
-.calendar-panel [role="grid"] > section[data-today][data-over] {
+.calendar-panel .calendar-week > section[data-today][data-over] {
   background:
     linear-gradient(rgb(223 234 221 / 86%), rgb(223 234 221 / 86%)),
     var(--terracotta-soft);
@@ -255,12 +259,19 @@ article:focus-visible {
   box-shadow: 0 3px 10px rgb(83 61 42 / 10%);
   color: var(--text);
   cursor: grab;
-  touch-action: none;
   user-select: none;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
     opacity 160ms ease;
+}
+
+.calendar-panel article[data-touch-pan="vertical"] {
+  touch-action: pan-y;
+}
+
+.planner-layout > aside article[data-touch-pan="both"] {
+  touch-action: pan-x pan-y;
 }
 
 .calendar-panel article:active,
@@ -429,7 +440,7 @@ article:focus-visible {
     scroll-snap-align: start;
   }
 
-  .calendar-panel [role="grid"] > section {
+  .calendar-panel .calendar-week > section {
     min-height: clamp(4.9rem, 17vw, 7.2rem);
     padding: 0.2rem;
   }
@@ -468,11 +479,11 @@ article:focus-visible {
     padding: 0.15rem;
   }
 
-  .calendar-panel [role="grid"] > section {
+  .calendar-panel .calendar-week > section {
     padding: 0;
   }
 
-  .calendar-panel [role="grid"] > section time {
+  .calendar-panel .calendar-week > section time {
     margin: 0.1rem;
   }
 

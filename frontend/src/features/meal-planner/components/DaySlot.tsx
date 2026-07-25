@@ -20,6 +20,7 @@ export function DaySlot({ date, meal, isCurrentMonth }: DaySlotProps) {
   return (
     <section
       ref={setNodeRef}
+      role="gridcell"
       aria-label={`Meal slot for ${date}`}
       data-over={isOver || undefined}
       data-adjacent-month={!isCurrentMonth || undefined}

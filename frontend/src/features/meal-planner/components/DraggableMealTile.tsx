@@ -26,6 +26,7 @@ export function DraggableMealTile({ meal, dragData }: DraggableMealTileProps) {
       dragListeners={listeners}
       transform={transform}
       isDragging={isDragging}
+      data-touch-pan={dragData.source === "dugout" ? "both" : "vertical"}
     />
   );
 }

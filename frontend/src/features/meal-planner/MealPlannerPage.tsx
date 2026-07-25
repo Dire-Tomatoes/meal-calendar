@@ -21,6 +21,7 @@ import { MonthCalendar } from "./components/MonthCalendar";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { getGridRange } from "./model/calendar";
 import { resolveDragIntent } from "./model/dragIntent";
+import { dispatchScheduleCommand } from "./model/scheduleCommand";
 import type {
   DateKey,
   DropTargetData,
@@ -98,7 +99,15 @@ export function MealPlannerPage() {
   const mutationError =
     mutations.assign.error ?? mutations.move.error ?? mutations.remove.error;
   const isInitialLoading = mealsQuery.isPending || scheduleQuery.isPending;
-  const fatalError = mealsQuery.isError || scheduleQuery.isError;
+  const fatalError =
+    (mealsQuery.isError && mealsQuery.data === undefined) ||
+    (scheduleQuery.isError && scheduleQuery.data === undefined);
+  const refreshError =
+    mealsQuery.isError && mealsQuery.data !== undefined
+      ? mealsQuery.error
+      : scheduleQuery.isError && scheduleQuery.data !== undefined
+        ? scheduleQuery.error
+        : null;
   const isRefreshing =
     !isInitialLoading && (mealsQuery.isFetching || scheduleQuery.isFetching);
 
@@ -120,29 +129,11 @@ export function MealPlannerPage() {
     }
 
     const command = resolveDragIntent(dragData, targetData);
-    if (!isOnline || isSaving) {
-      return;
-    }
-
-    switch (command.kind) {
-      case "assign":
-        mutations.assign.mutate({
-          date: command.date,
-          mealId: command.mealId
-        });
-        break;
-      case "move":
-        mutations.move.mutate({
-          fromDate: command.fromDate,
-          toDate: command.toDate
-        });
-        break;
-      case "remove":
-        mutations.remove.mutate({ date: command.date });
-        break;
-      case "none":
-        break;
-    }
+    dispatchScheduleCommand(
+      command,
+      { isOnline, isPending: isSaving },
+      mutations
+    );
   };
 
   const retry = () => {
@@ -179,6 +170,7 @@ export function MealPlannerPage() {
         isSaving={isSaving}
         isRefreshing={isRefreshing}
         error={mutationError}
+        refreshError={refreshError}
       />
 
       {isInitialLoading ? (

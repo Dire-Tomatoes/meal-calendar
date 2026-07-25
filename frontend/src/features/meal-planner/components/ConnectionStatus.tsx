@@ -3,13 +3,15 @@ interface ConnectionStatusProps {
   isSaving: boolean;
   isRefreshing: boolean;
   error?: Error | null;
+  refreshError?: Error | null;
 }
 
 export function ConnectionStatus({
   isOnline,
   isSaving,
   isRefreshing,
-  error
+  error,
+  refreshError
 }: ConnectionStatusProps) {
   if (!isOnline) {
     return <p role="status">Offline</p>;
@@ -21,6 +23,10 @@ export function ConnectionStatus({
 
   if (error) {
     return <p role="alert">Unable to save. Try again.</p>;
+  }
+
+  if (refreshError) {
+    return <p role="alert">Couldn’t refresh. Showing saved meals.</p>;
   }
 
   if (isRefreshing) {

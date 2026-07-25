@@ -39,4 +39,12 @@ describe("calendar utilities", () => {
       to: "2026-08-08"
     });
   });
+
+  test("rejects date keys that do not use the ISO calendar format", () => {
+    expect(() => fromDateKey("2026/07/24")).toThrow(RangeError);
+  });
+
+  test("rejects date keys that normalize to a different calendar date", () => {
+    expect(() => fromDateKey("2026-02-30")).toThrow(RangeError);
+  });
 });

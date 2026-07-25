@@ -749,6 +749,7 @@ git commit -m "feat: build draggable responsive meal planner"
 ### Task 7: Installable Native PWA and Controlled Updates
 
 **Files:**
+- Modify: `frontend/package.json`
 - Modify: `frontend/vite.config.ts`
 - Create: `frontend/public/icon.svg`
 - Create: `frontend/public/manifest.webmanifest`
@@ -771,7 +772,7 @@ git commit -m "feat: build draggable responsive meal planner"
 
 - [ ] **Step 1: Generate icons, manifest, and a versioned native service worker**
 
-Create a simple plate-and-calendar `icon.svg`. Add a `generate:icons` package script backed by `scripts/generate-icons.mjs`, which uses `sharp` to render the SVG as 192×192, 512×512, and 180×180 PNG files before every build.
+Create a simple plate-and-calendar `icon.svg`. Update `package.json` with `"generate:icons": "node scripts/generate-icons.mjs"`, `"prebuild": "npm run generate:icons"`, and `"postbuild": "node scripts/generate-service-worker.mjs"`. npm runs `prebuild` before `build` and `postbuild` after `build`, so every `npm run build` generates the 192×192, 512×512, and 180×180 PNG icons with `sharp`, runs Vite, then generates the service worker from Vite's output.
 
 Create `manifest.webmanifest` with the application name, short name, description, warm theme/background colors, standalone display, `/` start URL, and the generated 192- and 512-pixel PNG icons. Add manifest, theme-color, and apple-touch-icon links to `index.html`.
 

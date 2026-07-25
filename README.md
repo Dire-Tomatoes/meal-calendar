@@ -158,7 +158,7 @@ docker compose ps
 
 The database volume and read-only images mount survive image replacement. Startup applies new EF Core migrations automatically, so take a backup before updating.
 
-Each frontend build creates a content-versioned native application-shell cache. An open client downloads a new service worker in the background and shows an **Update available** prompt. Choosing the update activates the waiting worker and reloads once under user control; dismissing it leaves the current shell running until a later visit or update check. This prompted flow avoids an unexpected reload during a drag while preventing permanently stale wall displays.
+Each frontend build creates a content-versioned native application-shell cache whose identity covers the ordered shell URLs, every precached file's bytes, and the service-worker template. An open client checks for a new service worker hourly while visible and whenever the document becomes visible again. When an update is ready it shows an **Update available** prompt. Choosing the update activates the waiting worker and reloads once under user control; dismissing it leaves the current shell running until a later visit or update check. This prompted flow avoids an unexpected reload during a drag while preventing permanently stale wall displays.
 
 ## Troubleshooting
 

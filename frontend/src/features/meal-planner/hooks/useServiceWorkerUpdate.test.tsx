@@ -15,6 +15,10 @@ const originalReadyStateDescriptor = Object.getOwnPropertyDescriptor(
   document,
   "readyState"
 );
+const originalVisibilityStateDescriptor = Object.getOwnPropertyDescriptor(
+  document,
+  "visibilityState"
+);
 
 class TestWorker extends EventTarget {
   state: ServiceWorkerState;
@@ -35,19 +39,27 @@ type ServiceWorkerHarness = {
   container: ServiceWorkerContainer;
   registration: ServiceWorkerRegistration;
   register: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
   waitingWorker: TestWorker | null;
   setInstalling: (worker: TestWorker) => void;
 };
 
 function makeServiceWorkerHarness({
   waiting = true,
-  controlled = true
+  controlled = true,
+  installing = null
+}: {
+  waiting?: boolean;
+  controlled?: boolean;
+  installing?: TestWorker | null;
 } = {}): ServiceWorkerHarness {
   const waitingWorker = waiting ? new TestWorker() : null;
   const registrationTarget = new EventTarget();
+  const update = vi.fn().mockResolvedValue(undefined);
   const registration = Object.assign(registrationTarget, {
-    installing: null,
-    waiting: waitingWorker
+    installing,
+    waiting: waitingWorker,
+    update
   }) as unknown as ServiceWorkerRegistration;
   const register = vi.fn().mockResolvedValue(registration);
   const container = Object.assign(new EventTarget(), {
@@ -59,6 +71,7 @@ function makeServiceWorkerHarness({
     container,
     registration,
     register,
+    update,
     waitingWorker,
     setInstalling(worker) {
       Object.defineProperty(registration, "installing", {
@@ -85,6 +98,16 @@ afterEach(() => {
   } else {
     Reflect.deleteProperty(document, "readyState");
   }
+  if (originalVisibilityStateDescriptor) {
+    Object.defineProperty(
+      document,
+      "visibilityState",
+      originalVisibilityStateDescriptor
+    );
+  } else {
+    Reflect.deleteProperty(document, "visibilityState");
+  }
+  vi.useRealTimers();
 });
 
 describe("useServiceWorkerUpdate", () => {
@@ -129,6 +152,47 @@ describe("useServiceWorkerUpdate", () => {
     act(() => installingWorker.setState("installed"));
 
     await waitFor(() => expect(result.current.needRefresh).toBe(true));
+  });
+
+  test("tracks an installing worker already present when registration resolves", async () => {
+    const installingWorker = new TestWorker("installing");
+    const harness = makeServiceWorkerHarness({
+      waiting: false,
+      installing: installingWorker
+    });
+    const { result } = renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn()
+      })
+    );
+    finishPageLoad();
+    await waitFor(() => expect(harness.register).toHaveBeenCalledOnce());
+
+    act(() => installingWorker.setState("installed"));
+
+    await waitFor(() => expect(result.current.needRefresh).toBe(true));
+  });
+
+  test("does not prompt when the initially installing worker finishes", async () => {
+    const installingWorker = new TestWorker("installing");
+    const harness = makeServiceWorkerHarness({
+      waiting: false,
+      controlled: false,
+      installing: installingWorker
+    });
+    const { result } = renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn()
+      })
+    );
+    finishPageLoad();
+    await waitFor(() => expect(harness.register).toHaveBeenCalledOnce());
+
+    act(() => installingWorker.setState("installed"));
+
+    expect(result.current.needRefresh).toBe(false);
   });
 
   test("posts SKIP_WAITING and reloads exactly once after controllerchange", async () => {
@@ -177,6 +241,31 @@ describe("useServiceWorkerUpdate", () => {
     expect(harness.waitingWorker?.postMessage).not.toHaveBeenCalled();
   });
 
+  test("offers a dismissed waiting update again after a later update check", async () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible"
+    });
+    const harness = makeServiceWorkerHarness();
+    const { result } = renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn()
+      })
+    );
+    finishPageLoad();
+    await waitFor(() => expect(result.current.needRefresh).toBe(true));
+
+    act(() => result.current.dismissUpdate());
+    expect(result.current.needRefresh).toBe(false);
+
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    await waitFor(() => expect(harness.update).toHaveBeenCalledOnce());
+    await waitFor(() => expect(result.current.needRefresh).toBe(true));
+    expect(harness.waitingWorker?.postMessage).not.toHaveBeenCalled();
+  });
+
   test("logs registration failures while keeping the update state usable", async () => {
     const harness = makeServiceWorkerHarness();
     const registrationError = new Error("registration denied");
@@ -195,6 +284,134 @@ describe("useServiceWorkerUpdate", () => {
       expect(logError).toHaveBeenCalledWith(
         "Service worker registration failed.",
         registrationError
+      )
+    );
+    expect(result.current.needRefresh).toBe(false);
+  });
+
+  test("checks for updates on the configured interval only while visible", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      value: "complete"
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible"
+    });
+    const harness = makeServiceWorkerHarness();
+
+    renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn(),
+        updateIntervalMs: 1_000
+      })
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      await Promise.resolve();
+    });
+    expect(harness.update).toHaveBeenCalledOnce();
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden"
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      await Promise.resolve();
+    });
+    expect(harness.update).toHaveBeenCalledOnce();
+  });
+
+  test("checks for updates when the document becomes visible again", async () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden"
+    });
+    const harness = makeServiceWorkerHarness();
+
+    renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn()
+      })
+    );
+    finishPageLoad();
+    await waitFor(() => expect(harness.register).toHaveBeenCalledOnce());
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible"
+    });
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    await waitFor(() => expect(harness.update).toHaveBeenCalledOnce());
+  });
+
+  test("stops interval and visibility update checks after unmount", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      value: "complete"
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible"
+    });
+    const harness = makeServiceWorkerHarness();
+    const { unmount } = renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn(),
+        updateIntervalMs: 1_000
+      })
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      await Promise.resolve();
+    });
+    expect(harness.update).toHaveBeenCalledOnce();
+    harness.update.mockClear();
+
+    unmount();
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(harness.update).not.toHaveBeenCalled();
+  });
+
+  test("logs update-check failures without changing the prompt state", async () => {
+    const harness = makeServiceWorkerHarness({ waiting: false });
+    const updateError = new Error("offline");
+    harness.update.mockRejectedValue(updateError);
+    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useServiceWorkerUpdate({
+        serviceWorker: harness.container,
+        reload: vi.fn()
+      })
+    );
+    finishPageLoad();
+    await waitFor(() => expect(harness.register).toHaveBeenCalledOnce());
+
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    await waitFor(() =>
+      expect(logError).toHaveBeenCalledWith(
+        "Service worker update check failed.",
+        updateError
       )
     );
     expect(result.current.needRefresh).toBe(false);

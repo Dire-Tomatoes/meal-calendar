@@ -1,4 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  unlink,
+  writeFile
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -20,6 +27,23 @@ afterEach(async () => {
     )
   );
 });
+
+async function writePrecacheAssets(directory) {
+  const assetsDirectory = join(directory, "assets");
+  await mkdir(assetsDirectory, { recursive: true });
+  await Promise.all([
+    writeFile(join(directory, "index.html"), "<main>calendar</main>"),
+    writeFile(
+      join(directory, "manifest.webmanifest"),
+      '{"name":"Meal Calendar"}'
+    ),
+    writeFile(join(directory, "pwa-192x192.png"), "192 icon"),
+    writeFile(join(directory, "pwa-512x512.png"), "512 icon"),
+    writeFile(join(directory, "apple-touch-icon.png"), "apple icon"),
+    writeFile(join(assetsDirectory, "app-ABC.js"), "app javascript"),
+    writeFile(join(assetsDirectory, "app-DEF.css"), "app css")
+  ]);
+}
 
 describe("generateServiceWorker", () => {
   test("writes a deterministic versioned precache from a controlled Vite manifest", async () => {
@@ -51,6 +75,7 @@ describe("generateServiceWorker", () => {
         "const PRECACHE_URLS = __PRECACHE_URLS__;"
       ].join("\n")
     );
+    await writePrecacheAssets(directory);
 
     const generated = await generateServiceWorker({
       manifestPath,
@@ -59,7 +84,9 @@ describe("generateServiceWorker", () => {
     });
 
     expect(generated).toEqual({
-      cacheName: "meal-calendar-shell-cbfc86afbb516adb",
+      cacheName: expect.stringMatching(
+        /^meal-calendar-shell-[a-f0-9]{16}$/
+      ),
       precacheUrls: [
         "/",
         "/index.html",
@@ -73,13 +100,151 @@ describe("generateServiceWorker", () => {
     });
     expect(await readFile(outputPath, "utf8")).toBe(
       [
-        'const CACHE_NAME = "meal-calendar-shell-cbfc86afbb516adb";',
+        `const CACHE_NAME = "${generated.cacheName}";`,
         "const PRECACHE_URLS = " +
           '["/","/index.html","/manifest.webmanifest",' +
           '"/pwa-192x192.png","/pwa-512x512.png",' +
           '"/apple-touch-icon.png","/assets/app-ABC.js",' +
           '"/assets/app-DEF.css"];'
       ].join("\n")
+    );
+
+    const repeated = await generateServiceWorker({
+      manifestPath,
+      templatePath,
+      outputPath
+    });
+
+    expect(repeated.cacheName).toBe(generated.cacheName);
+  });
+
+  test("changes the cache identity when fixed-name shell contents change", async () => {
+    const directory = await makeTemporaryDirectory();
+    const manifestPath = join(directory, "manifest.json");
+    const templatePath = join(directory, "sw-template.js");
+    const outputPath = join(directory, "sw.js");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        "src/main.tsx": {
+          file: "assets/app-ABC.js",
+          isEntry: true,
+          css: ["assets/app-DEF.css"]
+        }
+      })
+    );
+    await writeFile(
+      templatePath,
+      [
+        'const CACHE_NAME = "__CACHE_NAME__";',
+        "const PRECACHE_URLS = __PRECACHE_URLS__;"
+      ].join("\n")
+    );
+    await writePrecacheAssets(directory);
+
+    const first = await generateServiceWorker({
+      manifestPath,
+      templatePath,
+      outputPath
+    });
+
+    await writeFile(
+      join(directory, "manifest.webmanifest"),
+      '{"name":"Updated Meal Calendar"}'
+    );
+    const second = await generateServiceWorker({
+      manifestPath,
+      templatePath,
+      outputPath
+    });
+
+    expect(second.precacheUrls).toEqual(first.precacheUrls);
+    expect(second.cacheName).not.toBe(first.cacheName);
+  });
+
+  test("changes the cache identity when worker logic changes", async () => {
+    const directory = await makeTemporaryDirectory();
+    const manifestPath = join(directory, "manifest.json");
+    const templatePath = join(directory, "sw-template.js");
+    const outputPath = join(directory, "sw.js");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        "src/main.tsx": {
+          file: "assets/app-ABC.js",
+          isEntry: true,
+          css: ["assets/app-DEF.css"]
+        }
+      })
+    );
+    await writeFile(
+      templatePath,
+      [
+        'const CACHE_NAME = "__CACHE_NAME__";',
+        "const PRECACHE_URLS = __PRECACHE_URLS__;"
+      ].join("\n")
+    );
+    await writePrecacheAssets(directory);
+
+    const first = await generateServiceWorker({
+      manifestPath,
+      templatePath,
+      outputPath
+    });
+
+    await writeFile(
+      templatePath,
+      [
+        'const CACHE_NAME = "__CACHE_NAME__";',
+        "const PRECACHE_URLS = __PRECACHE_URLS__;",
+        'const WORKER_LOGIC = "updated";'
+      ].join("\n")
+    );
+    const second = await generateServiceWorker({
+      manifestPath,
+      templatePath,
+      outputPath
+    });
+
+    expect(second.cacheName).not.toBe(first.cacheName);
+  });
+
+  test("fails with an actionable error when a precached build asset is missing", async () => {
+    const directory = await makeTemporaryDirectory();
+    const manifestPath = join(directory, "manifest.json");
+    const templatePath = join(directory, "sw-template.js");
+    const outputPath = join(directory, "sw.js");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        "src/main.tsx": {
+          file: "assets/app-ABC.js",
+          isEntry: true,
+          css: ["assets/app-DEF.css"]
+        }
+      })
+    );
+    await writeFile(
+      templatePath,
+      [
+        'const CACHE_NAME = "__CACHE_NAME__";',
+        "const PRECACHE_URLS = __PRECACHE_URLS__;"
+      ].join("\n")
+    );
+    await writePrecacheAssets(directory);
+    await unlink(join(directory, "manifest.webmanifest"));
+
+    await expect(
+      generateServiceWorker({
+        manifestPath,
+        templatePath,
+        outputPath
+      })
+    ).rejects.toThrow(
+      'Precached build asset "/manifest.webmanifest" is missing'
     );
   });
 });
@@ -101,13 +266,7 @@ async function buildWorkerHarness({
   };
   const caches = {
     open: vi.fn().mockResolvedValue(cache),
-    keys: vi
-      .fn()
-      .mockResolvedValue([
-        "meal-calendar-shell-old",
-        "meal-calendar-shell-cbfc86afbb516adb",
-        "unrelated-cache"
-      ]),
+    keys: vi.fn(),
     delete: vi.fn().mockResolvedValue(true)
   };
   const fetch = vi.fn(async () => {
@@ -133,11 +292,17 @@ async function buildWorkerHarness({
       }
     })
   );
-  await generateServiceWorker({
+  await writePrecacheAssets(directory);
+  const generated = await generateServiceWorker({
     manifestPath,
     templatePath: join(process.cwd(), "public", "sw-template.js"),
     outputPath
   });
+  caches.keys.mockResolvedValue([
+    "meal-calendar-shell-old",
+    generated.cacheName,
+    "unrelated-cache"
+  ]);
 
   vm.runInNewContext(await readFile(outputPath, "utf8"), {
     self: serviceWorker,
@@ -148,7 +313,14 @@ async function buildWorkerHarness({
     Promise
   });
 
-  return { cache, caches, fetch, listeners, serviceWorker };
+  return {
+    cache,
+    cacheName: generated.cacheName,
+    caches,
+    fetch,
+    listeners,
+    serviceWorker
+  };
 }
 
 function dispatchExtendable(listener, extra = {}) {
@@ -179,9 +351,7 @@ describe("generated native service worker", () => {
 
     await dispatchExtendable(harness.listeners.get("install"));
 
-    expect(harness.caches.open).toHaveBeenCalledWith(
-      "meal-calendar-shell-cbfc86afbb516adb"
-    );
+    expect(harness.caches.open).toHaveBeenCalledWith(harness.cacheName);
     expect(harness.cache.addAll).toHaveBeenCalledWith([
       "/",
       "/index.html",

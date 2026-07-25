@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MealCalendar.Api.Data;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace MealCalendar.Api.Tests;
@@ -37,6 +41,88 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     }
 
     [Fact]
+    public async Task ConcurrentAssignmentsToAnEmptyDateAllSucceedWithOneFinalMeal()
+    {
+        using var client = factory.CreateClient();
+        const string date = "2026-08-10";
+        string[] mealIds = ["tacos", "pizza", "pasta", "curry", "stir-fry", "burgers", "soup", "leftovers"];
+
+        await AssertNoContentAsync(client.DeleteAsync($"/api/v1/schedule/{date}"));
+
+        var startGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requests = mealIds.Select(async mealId =>
+        {
+            await startGate.Task;
+            return await client.PutAsJsonAsync($"/api/v1/schedule/{date}", new { mealId });
+        }).ToArray();
+
+        startGate.SetResult();
+        var responses = await Task.WhenAll(requests);
+
+        try
+        {
+            Assert.All(responses, response => Assert.Equal(HttpStatusCode.NoContent, response.StatusCode));
+        }
+        finally
+        {
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
+
+        var schedule = await GetScheduleAsync(client, date, date);
+
+        Assert.Single(schedule.Days);
+        Assert.Contains(schedule.Days[date], mealIds);
+    }
+
+    [Fact]
+    public async Task AssignmentReturnsStructuredConflictWhenTheDatabaseRemainsWriteLocked()
+    {
+        await using var conflictFactory = new MealCalendarApiFactory(defaultTimeoutSeconds: 1);
+        using var client = conflictFactory.CreateClient();
+        using var healthResponse = await client.GetAsync("/api/health");
+        healthResponse.EnsureSuccessStatusCode();
+
+        await using var serviceScope = conflictFactory.Services.CreateAsyncScope();
+        var context = serviceScope.ServiceProvider.GetRequiredService<MealCalendarDbContext>();
+        var connectionString = context.Database.GetConnectionString()
+            ?? throw new InvalidOperationException("The test database connection string was missing.");
+        Assert.Contains(conflictFactory.DatabasePath, connectionString, StringComparison.OrdinalIgnoreCase);
+
+        var lockConnectionString = new SqliteConnectionStringBuilder(connectionString)
+        {
+            Pooling = false
+        }.ToString();
+        await using var lockConnection = new SqliteConnection(lockConnectionString);
+        await lockConnection.OpenAsync();
+        await using var lockTransaction = lockConnection.BeginTransaction();
+
+        await using (var lockCommand = lockConnection.CreateCommand())
+        {
+            lockCommand.Transaction = lockTransaction;
+            lockCommand.CommandText = """
+                INSERT INTO "ScheduleDays" ("Date", "MealId")
+                VALUES ('2099-01-01', 'tacos');
+                """;
+            await lockCommand.ExecuteNonQueryAsync();
+        }
+
+        try
+        {
+            await AssertProblemAsync(
+                client.PutAsJsonAsync("/api/v1/schedule/2026-08-11", new { mealId = "tacos" }),
+                HttpStatusCode.Conflict,
+                "schedule_conflict");
+        }
+        finally
+        {
+            await lockTransaction.RollbackAsync();
+        }
+    }
+
+    [Fact]
     public async Task ScheduleRangeIncludesOnlyDatesWithinItsInclusiveBounds()
     {
         using var client = factory.CreateClient();
@@ -64,6 +150,55 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
         var schedule = await GetScheduleAsync(client, "2026-08-02", "2026-08-02");
 
         Assert.DoesNotContain("2026-08-02", schedule.Days.Keys);
+    }
+
+    [Fact]
+    public async Task ConcurrentDeletesOfExistingDatesAreIdempotent()
+    {
+        using var firstClient = factory.CreateClient();
+        using var secondClient = factory.CreateClient();
+        var dates = Enumerable.Range(1, 8).Select(day => $"2026-09-{day:00}").ToArray();
+
+        foreach (var date in dates)
+        {
+            await AssertNoContentAsync(
+                firstClient.PutAsJsonAsync($"/api/v1/schedule/{date}", new { mealId = "tacos" }));
+        }
+
+        var startGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<HttpResponseMessage> DeleteAfterGateAsync(HttpClient client, string date)
+        {
+            await startGate.Task;
+            return await client.DeleteAsync($"/api/v1/schedule/{date}");
+        }
+
+        var requests = dates
+            .SelectMany(date => new[]
+            {
+                DeleteAfterGateAsync(firstClient, date),
+                DeleteAfterGateAsync(secondClient, date)
+            })
+            .ToArray();
+
+        startGate.SetResult();
+        var responses = await Task.WhenAll(requests);
+
+        try
+        {
+            Assert.All(responses, response => Assert.Equal(HttpStatusCode.NoContent, response.StatusCode));
+        }
+        finally
+        {
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
+
+        var schedule = await GetScheduleAsync(firstClient, dates[0], dates[^1]);
+
+        Assert.Empty(schedule.Days);
     }
 
     [Fact]

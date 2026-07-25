@@ -38,15 +38,15 @@ export function useScheduleMutations() {
   return {
     assign: useMutation({
       mutationFn: ({ date, mealId }: AssignVariables) => assignMeal(date, mealId),
-      onSuccess: invalidateSchedules
+      onSettled: invalidateSchedules
     }),
     move: useMutation({
       mutationFn: ({ fromDate, toDate }: MoveVariables) => moveMeal(fromDate, toDate),
-      onSuccess: invalidateSchedules
+      onSettled: invalidateSchedules
     }),
     remove: useMutation({
       mutationFn: ({ date }: RemoveVariables) => removeMeal(date),
-      onSuccess: invalidateSchedules
+      onSettled: invalidateSchedules
     })
   };
 }

@@ -108,4 +108,74 @@ describe("meal planner query hooks", () => {
       );
     }
   );
+
+  test.each(mutationCases)(
+    "refetches every cached schedule range after a failed $label",
+    async ({ mutate }) => {
+      const scheduleRequestCounts = new Map<string, number>();
+      fetchMock.mockImplementation(async (path: string) => {
+        if (path.startsWith("/api/v1/schedule?")) {
+          const requestCount = (scheduleRequestCounts.get(path) ?? 0) + 1;
+          scheduleRequestCounts.set(path, requestCount);
+          const date = path.includes("from=2026-07-19") ? "2026-07-24" : "2026-09-01";
+          return new Response(
+            JSON.stringify({
+              days: { [date]: requestCount === 1 ? "tacos" : "pasta" }
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        if (
+          path === "/api/v1/schedule/2026-07-24" ||
+          path === "/api/v1/schedule/move"
+        ) {
+          return new Response(
+            JSON.stringify({
+              title: "Schedule conflict",
+              status: 409,
+              detail: "The schedule changed while this request was being saved.",
+              code: "schedule_conflict"
+            }),
+            { status: 409, headers: { "Content-Type": "application/problem+json" } }
+          );
+        }
+
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+      const { result } = renderHook(
+        () => ({
+          primarySchedule: useSchedule(primaryRange),
+          secondarySchedule: useSchedule(secondaryRange),
+          mutations: useScheduleMutations()
+        }),
+        { wrapper }
+      );
+
+      await waitFor(() => {
+        expect(result.current.primarySchedule.data?.days).toEqual({ "2026-07-24": "tacos" });
+        expect(result.current.secondarySchedule.data?.days).toEqual({ "2026-09-01": "tacos" });
+      });
+
+      await act(async () => {
+        await expect(mutate(result.current.mutations)).rejects.toThrow(
+          "The schedule changed while this request was being saved."
+        );
+      });
+
+      await waitFor(() => {
+        expect(result.current.primarySchedule.data?.days).toEqual({ "2026-07-24": "pasta" });
+        expect(result.current.secondarySchedule.data?.days).toEqual({ "2026-09-01": "pasta" });
+      });
+      expect(scheduleRequestCounts).toEqual(
+        new Map([
+          ["/api/v1/schedule?from=2026-07-19&to=2026-08-29", 2],
+          ["/api/v1/schedule?from=2026-08-30&to=2026-10-10", 2]
+        ])
+      );
+    }
+  );
 });

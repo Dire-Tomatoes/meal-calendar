@@ -14,6 +14,7 @@ public static class ScheduleEndpoints
         endpoints.MapGet("/api/v1/schedule", GetScheduleAsync);
         endpoints.MapPut("/api/v1/schedule/{date}", AssignMealAsync);
         endpoints.MapDelete("/api/v1/schedule/{date}", DeleteMealAsync);
+        endpoints.MapPost("/api/v1/schedule/move", MoveMealAsync);
 
         return endpoints;
     }
@@ -101,6 +102,51 @@ public static class ScheduleEndpoints
             context.ScheduleDays.Remove(existing);
             await context.SaveChangesAsync(cancellationToken);
         }
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> MoveMealAsync(
+        MoveMealRequest? request,
+        MealCalendarDbContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!IsoDate.TryParse(request?.FromDate, out var fromDate) ||
+            !IsoDate.TryParse(request?.ToDate, out var toDate))
+        {
+            return ApiProblem.Create(400, "Invalid date", "invalid_date", "Dates must use yyyy-MM-dd format.");
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+        var source = await context.ScheduleDays
+            .SingleOrDefaultAsync(row => row.Date == fromDate, cancellationToken);
+
+        if (source is null)
+        {
+            return ApiProblem.Create(404, "Source not found", "source_not_found", "The source date has no scheduled meal.");
+        }
+
+        if (fromDate == toDate)
+        {
+            return Results.NoContent();
+        }
+
+        var destination = await context.ScheduleDays
+            .SingleOrDefaultAsync(row => row.Date == toDate, cancellationToken);
+
+        if (destination is null)
+        {
+            context.ScheduleDays.Add(new ScheduleDay { Date = toDate, MealId = source.MealId });
+        }
+        else
+        {
+            destination.MealId = source.MealId;
+        }
+
+        context.ScheduleDays.Remove(source);
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Results.NoContent();
     }

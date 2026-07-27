@@ -8,6 +8,7 @@ frontend/.pnpm-cache/
 frontend/.pnpm-store/
 /.pnpm-cache/
 /.pnpm-store/
+.worktrees/
 frontend/dist/
 
 # Local runtime data

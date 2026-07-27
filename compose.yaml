@@ -9,7 +9,7 @@ services:
       - "8080:8080"
     volumes:
       - /mnt/user/appdata/meal-calendar/data:/app/data
-      - /mnt/user/appdata/meal-calendar/images:/app/images:ro
+      - /mnt/user/appdata/meal-calendar/images:/app/images
     environment:
       ConnectionStrings__MealCalendar: "Data Source=/app/data/meal-calendar.db"
       MealImagesPath: /app/images

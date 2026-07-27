@@ -2,7 +2,8 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
 WORKDIR /app
 
-ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    MealImagesPath=/app/images
 EXPOSE 8080
 
 
@@ -41,9 +42,9 @@ USER root
 COPY --from=backend-build --chown=app:app /app/publish/ ./
 COPY --from=frontend-build --chown=app:app /src/frontend/dist/ ./wwwroot/
 
-RUN mkdir -p /app/data /app/wwwroot/images/meals \
-    && chown -R app:app /app/data /app/wwwroot/images/meals \
-    && chmod 0755 /app/data /app/wwwroot/images/meals
+RUN mkdir -p /app/data /app/images \
+    && chown -R app:app /app/data /app/images \
+    && chmod 0755 /app/data /app/images
 
 USER app
 

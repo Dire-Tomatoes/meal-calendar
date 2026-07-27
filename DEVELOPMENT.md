@@ -109,7 +109,7 @@ Create them and set permissions before the first deployment:
 mkdir -p /mnt/user/appdata/meal-calendar/data
 mkdir -p /mnt/user/appdata/meal-calendar/images
 chown -R 1654:1654 /mnt/user/appdata/meal-calendar/data
-chmod -R a+rX /mnt/user/appdata/meal-calendar/images
+chown -R 1654:1654 /mnt/user/appdata/meal-calendar/images
 ```
 
 UID/GID `1654` is the `app` user in the current .NET Alpine runtime image. Recheck it after changing that base image:
@@ -146,6 +146,8 @@ curl --fail http://127.0.0.1:8080/api/health
 ```
 
 The bind-mounted database and images survive image replacement. Startup applies database migrations automatically.
+
+The `/app/images` mount is writable so the application can persist recipe uploads. Manage recipes and their optional images at `/recipes`; do not edit SQLite `ImagePath` values manually.
 
 ## Final checks
 

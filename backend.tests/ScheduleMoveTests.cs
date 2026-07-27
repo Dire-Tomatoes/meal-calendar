@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MealCalendar.Api.Data;
+using MealCalendar.Api.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace MealCalendar.Api.Tests;
@@ -12,6 +16,7 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
     [Fact]
     public async Task MovingAMealRemovesTheSourceAndAssignsTheDestination()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
         await ClearDatesAsync(client);
         await AssignAsync(client, "2026-07-24", "tacos");
@@ -31,6 +36,7 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
     [Fact]
     public async Task MovingAMealReplacesAnExistingDestinationAssignment()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
         await ClearDatesAsync(client);
         await AssignAsync(client, "2026-07-24", "tacos");
@@ -51,6 +57,7 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
     [Fact]
     public async Task MovingAMealToTheSameDateLeavesTheAssignmentUnchanged()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
         await ClearDatesAsync(client);
         await AssignAsync(client, "2026-07-24", "tacos");
@@ -69,6 +76,7 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
     [Fact]
     public async Task MovingFromAnEmptyDateReturnsNotFoundAndLeavesTheDestinationUnchanged()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
         await ClearDatesAsync(client);
         await AssignAsync(client, "2026-07-25", "pizza");
@@ -119,6 +127,22 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
             ?? throw new InvalidOperationException("Schedule response was empty.");
 
         return schedule.Days;
+    }
+
+    private static async Task EnsureDefaultMealsAsync(MealCalendarApiFactory factory)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MealCalendarDbContext>();
+
+        if (await context.Meals.AnyAsync())
+        {
+            return;
+        }
+
+        context.Meals.AddRange(
+            new Meal { Id = "tacos", Name = "tacos", Emoji = "🍽️" },
+            new Meal { Id = "pizza", Name = "pizza", Emoji = "🍽️" });
+        await context.SaveChangesAsync();
     }
 
     private static async Task AssertNoContentAsync(Task<HttpResponseMessage> responseTask)

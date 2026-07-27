@@ -1,5 +1,6 @@
 using MealCalendar.Api.Data;
 using MealCalendar.Api.Endpoints;
+using MealCalendar.Api.Images;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -22,21 +23,20 @@ if (!string.IsNullOrWhiteSpace(databasePath) && databasePath != ":memory:")
 builder.Services.AddDbContext<MealCalendarDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddProblemDetails();
 
+var mealImagesPath = Path.GetFullPath(builder.Configuration["MealImagesPath"] ?? "images/meals");
+builder.Services.AddSingleton<IMealImageStore>(new FileSystemMealImageStore(mealImagesPath));
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
 await DatabaseInitialization.InitializeDatabaseAsync(app);
 
-var mealImagesPath = builder.Configuration["MealImagesPath"] ?? "images/meals";
-
-if (Directory.Exists(mealImagesPath))
+Directory.CreateDirectory(mealImagesPath);
+app.UseStaticFiles(new StaticFileOptions
 {
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(Path.GetFullPath(mealImagesPath)),
-        RequestPath = "/images/meals"
-    });
-}
+    FileProvider = new PhysicalFileProvider(mealImagesPath),
+    RequestPath = "/images/meals"
+});
 
 app.MapMealsEndpoints();
 app.MapScheduleEndpoints();

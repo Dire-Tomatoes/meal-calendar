@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using MealCalendar.Api.Data;
+using MealCalendar.Api.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     [Fact]
     public async Task AssigningAMealReturnsItInTheRequestedRange()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
 
         var assign = await client.PutAsJsonAsync("/api/v1/schedule/2026-07-24", new { mealId = "tacos" });
@@ -29,6 +31,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     [Fact]
     public async Task AssigningAnotherMealToADateReplacesThePreviousMeal()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
 
         await AssertNoContentAsync(client.PutAsJsonAsync("/api/v1/schedule/2026-07-25", new { mealId = "tacos" }));
@@ -43,6 +46,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     [Fact]
     public async Task ConcurrentAssignmentsToAnEmptyDateAllSucceedWithOneFinalMeal()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
         const string date = "2026-08-10";
         string[] mealIds = ["tacos", "pizza", "pasta", "curry", "stir-fry", "burgers", "soup", "leftovers"];
@@ -84,6 +88,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
         using var client = conflictFactory.CreateClient();
         using var healthResponse = await client.GetAsync("/api/health");
         healthResponse.EnsureSuccessStatusCode();
+        await EnsureDefaultMealsAsync(conflictFactory);
 
         await using var serviceScope = conflictFactory.Services.CreateAsyncScope();
         var context = serviceScope.ServiceProvider.GetRequiredService<MealCalendarDbContext>();
@@ -125,6 +130,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     [Fact]
     public async Task ScheduleRangeIncludesOnlyDatesWithinItsInclusiveBounds()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
 
         await AssertNoContentAsync(client.PutAsJsonAsync("/api/v1/schedule/2026-07-29", new { mealId = "tacos" }));
@@ -142,6 +148,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     [Fact]
     public async Task DeletingAnAssignedDateRemovesItFromTheSchedule()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
 
         await AssertNoContentAsync(client.PutAsJsonAsync("/api/v1/schedule/2026-08-02", new { mealId = "curry" }));
@@ -155,6 +162,7 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
     [Fact]
     public async Task ConcurrentDeletesOfExistingDatesAreIdempotent()
     {
+        await EnsureDefaultMealsAsync(factory);
         using var firstClient = factory.CreateClient();
         using var secondClient = factory.CreateClient();
         var dates = Enumerable.Range(1, 8).Select(day => $"2026-09-{day:00}").ToArray();
@@ -240,6 +248,24 @@ public sealed class ScheduleAssignmentTests(MealCalendarApiFactory factory) : IC
 
         return (await response.Content.ReadFromJsonAsync<ScheduleResponse>(JsonOptions))
             ?? throw new InvalidOperationException("Schedule response was empty.");
+    }
+
+    private static async Task EnsureDefaultMealsAsync(MealCalendarApiFactory factory)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MealCalendarDbContext>();
+
+        if (await context.Meals.AnyAsync())
+        {
+            return;
+        }
+
+        foreach (var id in new[] { "tacos", "pizza", "pasta", "curry", "stir-fry", "burgers", "soup", "leftovers" })
+        {
+            context.Meals.Add(new Meal { Id = id, Name = id, Emoji = "🍽️" });
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task AssertNoContentAsync(Task<HttpResponseMessage> responseTask)

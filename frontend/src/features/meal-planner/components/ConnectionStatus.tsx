@@ -13,25 +13,30 @@ export function ConnectionStatus({
   error,
   refreshError
 }: ConnectionStatusProps) {
+  let message: { role: "status" | "alert"; text: string } | null = null;
+
   if (!isOnline) {
-    return <p role="status">Offline</p>;
+    message = { role: "status", text: "Offline" };
+  } else if (isSaving) {
+    message = { role: "status", text: "Saving" };
+  } else if (error) {
+    message = { role: "alert", text: "Unable to save. Try again." };
+  } else if (refreshError) {
+    message = {
+      role: "alert",
+      text: "Couldn’t refresh. Showing saved meals."
+    };
+  } else if (isRefreshing) {
+    message = { role: "status", text: "Refreshing" };
   }
 
-  if (isSaving) {
-    return <p role="status">Saving</p>;
-  }
-
-  if (error) {
-    return <p role="alert">Unable to save. Try again.</p>;
-  }
-
-  if (refreshError) {
-    return <p role="alert">Couldn’t refresh. Showing saved meals.</p>;
-  }
-
-  if (isRefreshing) {
-    return <p role="status">Refreshing</p>;
-  }
-
-  return null;
+  return (
+    <div
+      className="connection-status-slot"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {message ? <p role={message.role}>{message.text}</p> : null}
+    </div>
+  );
 }

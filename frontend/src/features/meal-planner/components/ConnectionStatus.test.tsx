@@ -17,6 +17,32 @@ test("keeps its status slot mounted while its message changes", () => {
   expect(screen.getByRole("status")).toHaveTextContent("Saving");
 
   rerender(
+    <ConnectionStatus isOnline={false} isSaving={false} isRefreshing={false} />
+  );
+
+  expect(container.querySelector(".connection-status-slot")).toBe(slot);
+  expect(screen.getByRole("status")).toHaveTextContent("Offline");
+
+  rerender(<ConnectionStatus isOnline isSaving={false} isRefreshing />);
+
+  expect(container.querySelector(".connection-status-slot")).toBe(slot);
+  expect(screen.getByRole("status")).toHaveTextContent("Refreshing");
+
+  rerender(
+    <ConnectionStatus
+      isOnline
+      isSaving={false}
+      isRefreshing={false}
+      error={new Error("save failed")}
+    />
+  );
+
+  expect(container.querySelector(".connection-status-slot")).toBe(slot);
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Unable to save. Try again."
+  );
+
+  rerender(
     <ConnectionStatus
       isOnline
       isSaving={false}

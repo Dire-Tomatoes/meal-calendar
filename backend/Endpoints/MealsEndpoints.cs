@@ -37,7 +37,16 @@ public static class MealsEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
-        var request = await RecipeMutationRequest.ReadAsync(httpRequest, cancellationToken);
+        RecipeMutationRequest request;
+        try
+        {
+            request = await RecipeMutationRequest.ReadAsync(httpRequest, cancellationToken);
+        }
+        catch (InvalidRecipeMutationRequestException exception)
+        {
+            return InvalidRecipe(exception.Message);
+        }
+
         if (!TryValidate(request, out var name, out var emoji, out var validationProblem))
         {
             return validationProblem;
@@ -86,7 +95,16 @@ public static class MealsEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
-        var request = await RecipeMutationRequest.ReadAsync(httpRequest, cancellationToken);
+        RecipeMutationRequest request;
+        try
+        {
+            request = await RecipeMutationRequest.ReadAsync(httpRequest, cancellationToken);
+        }
+        catch (InvalidRecipeMutationRequestException exception)
+        {
+            return InvalidRecipe(exception.Message);
+        }
+
         if (!TryValidate(request, out var name, out var emoji, out var validationProblem))
         {
             return validationProblem;

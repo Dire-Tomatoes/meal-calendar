@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using MealCalendar.Api.Data;
 using MealCalendar.Api.Models;
@@ -70,6 +71,50 @@ public sealed class MealsEndpointsTests
         Assert.Equal("Miso Soup", recipe.Name);
         Assert.Equal("🍲", recipe.Emoji);
         Assert.Null(recipe.ImageUrl);
+    }
+
+    [Fact]
+    public async Task CreateRecipeRejectsJsonContent()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/meals",
+            new { name = "Miso Soup", emoji = "🍲", removeImage = false });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
+    }
+
+    [Fact]
+    public async Task CreateRecipeRejectsMalformedMultipartContent()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        using var content = new ByteArrayContent(
+            Encoding.UTF8.GetBytes(
+                "--broken\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nMiso Soup"));
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse(
+            "multipart/form-data; boundary=broken");
+
+        using var response = await client.PostAsync("/api/v1/meals", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
+    }
+
+    [Fact]
+    public async Task CreateRecipeRejectsInvalidRemoveImageText()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        using var form = CreateRecipeForm("Miso Soup", "🍲", removeImageText: "yes");
+
+        using var response = await client.PostAsync("/api/v1/meals", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
     }
 
     [Fact]
@@ -161,6 +206,50 @@ public sealed class MealsEndpointsTests
         Assert.Equal("🍜", updated.Emoji);
         Assert.Equal($"/images/meals/{Path.GetFileName(originalFile)}", updated.ImageUrl);
         Assert.True(File.Exists(originalFile));
+    }
+
+    [Fact]
+    public async Task UpdateRecipeRejectsJsonContent()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PutAsJsonAsync(
+            "/api/v1/meals/missing",
+            new { name = "Miso Soup", emoji = "🍲", removeImage = false });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
+    }
+
+    [Fact]
+    public async Task UpdateRecipeRejectsMalformedMultipartContent()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        using var content = new ByteArrayContent(
+            Encoding.UTF8.GetBytes(
+                "--broken\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nMiso Soup"));
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse(
+            "multipart/form-data; boundary=broken");
+
+        using var response = await client.PutAsync("/api/v1/meals/missing", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
+    }
+
+    [Fact]
+    public async Task UpdateRecipeRejectsInvalidRemoveImageText()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        using var form = CreateRecipeForm("Miso Soup", "🍲", removeImageText: "yes");
+
+        using var response = await client.PutAsync("/api/v1/meals/missing", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
     }
 
     [Fact]
@@ -281,13 +370,18 @@ public sealed class MealsEndpointsTests
         string name,
         string emoji,
         HttpContent? image = null,
-        bool removeImage = false)
+        bool removeImage = false,
+        string? removeImageText = null)
     {
         var form = new MultipartFormDataContent
         {
             { new StringContent(name), "name" },
             { new StringContent(emoji), "emoji" },
-            { new StringContent(removeImage.ToString().ToLowerInvariant()), "removeImage" }
+            {
+                new StringContent(
+                    removeImageText ?? removeImage.ToString().ToLowerInvariant()),
+                "removeImage"
+            }
         };
 
         if (image is not null)

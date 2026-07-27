@@ -16,7 +16,7 @@ Keeping the PWA and REST API in one process avoids CORS, an extra proxy, and ano
 Repository map:
 
 ```text
-backend/        ASP.NET Core minimal API, EF Core model, migrations, and seed data
+backend/        ASP.NET Core minimal API, EF Core model, and migrations
 backend.tests/  SQLite-backed API integration tests
 frontend/       React, TypeScript, Vite, tests, native PWA assets and build scripts
 Dockerfile      Multi-stage production image
@@ -36,7 +36,7 @@ dotnet restore MealCalendar.sln
 dotnet run --project backend --urls http://localhost:5000
 ```
 
-The development defaults in `backend/appsettings.json` create `data/meal-calendar.db` relative to the backend process and look for images in `images/meals`. Startup creates the database directory, applies EF Core migrations, and seeds known meals.
+The development defaults in `backend/appsettings.json` create `data/meal-calendar.db` relative to the backend process and look for images in `images/meals`. Startup creates the database directory and applies EF Core migrations. New databases start empty; manage recipes at `/recipes`.
 
 Run all backend integration tests with:
 
@@ -112,7 +112,7 @@ chown -R 1654:1654 /mnt/user/appdata/meal-calendar/images
 docker run --rm mcr.microsoft.com/dotnet/aspnet:10.0-alpine id app
 ```
 
-On first startup the API applies migrations, creates `meal-calendar.db`, and seeds the meal definitions. Follow progress with:
+On first startup the API applies migrations and creates an empty `meal-calendar.db`. Manage recipes at `/recipes`. Follow progress with:
 
 ```bash
 docker compose logs --follow meal-calendar

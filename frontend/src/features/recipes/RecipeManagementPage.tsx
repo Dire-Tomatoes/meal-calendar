@@ -43,8 +43,10 @@ export function RecipeManagementPage() {
   const mutations = useRecipeMutations();
   const [editor, setEditor] = useState<EditorState>(emptyEditor);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationSuccess, setMutationSuccess] = useState<string | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
   const meals = mealsQuery.data ?? [];
+  const hasCachedMeals = mealsQuery.data !== undefined;
   const isPending =
     mutations.create.isPending ||
     mutations.update.isPending ||
@@ -68,14 +70,17 @@ export function RecipeManagementPage() {
     }
 
     setMutationError(null);
+    setMutationSuccess(null);
     try {
       if (editor.id) {
         await mutations.update.mutateAsync({
           id: editor.id,
           values: valuesFrom(editor)
         });
+        setMutationSuccess("Recipe updated.");
       } else {
         await mutations.create.mutateAsync(valuesFrom(editor));
+        setMutationSuccess("Recipe added.");
       }
       resetEditor();
     } catch (error) {
@@ -95,11 +100,13 @@ export function RecipeManagementPage() {
     }
 
     setMutationError(null);
+    setMutationSuccess(null);
     try {
       await mutations.remove.mutateAsync(meal.id);
       if (editor.id === meal.id) {
         resetEditor();
       }
+      setMutationSuccess("Recipe deleted.");
     } catch (error) {
       setMutationError(error instanceof Error ? error.message : "Couldn’t delete recipe.");
     }
@@ -214,13 +221,17 @@ export function RecipeManagementPage() {
             </div>
           </form>
           {mutationError ? <p role="alert">{mutationError}</p> : null}
+          {mutationSuccess ? <p role="status">{mutationSuccess}</p> : null}
         </section>
 
         <section className="recipe-list-panel" aria-labelledby="recipe-list-heading">
           <h2 id="recipe-list-heading">Your recipes</h2>
           {mealsQuery.isPending ? <p role="status">Loading recipes</p> : null}
-          {mealsQuery.isError && mealsQuery.data === undefined ? (
+          {mealsQuery.isError && !hasCachedMeals ? (
             <p role="alert">Couldn’t load recipes. Please try again.</p>
+          ) : null}
+          {mealsQuery.isError && hasCachedMeals ? (
+            <p role="alert">Couldn’t refresh recipes. Showing saved recipes.</p>
           ) : null}
           <div className="recipe-list" aria-live="polite">
             {meals.map((meal) => (
@@ -242,6 +253,8 @@ export function RecipeManagementPage() {
                     disabled={isPending}
                     onClick={() => {
                       setMutationError(null);
+                      setMutationSuccess(null);
+                      clearImageInput();
                       setEditor(mealEditor(meal));
                     }}
                   >
@@ -258,7 +271,7 @@ export function RecipeManagementPage() {
               </article>
             ))}
           </div>
-          {!mealsQuery.isPending && !mealsQuery.isError && meals.length === 0 ? (
+          {!mealsQuery.isPending && hasCachedMeals && meals.length === 0 ? (
             <p>No recipes yet. Add your first one above.</p>
           ) : null}
         </section>

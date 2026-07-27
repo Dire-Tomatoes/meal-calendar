@@ -25,7 +25,7 @@ Common source locations:
 
 - `frontend/src/` — calendar UI, drag-and-drop behavior, API calls, and styles
 - `frontend/scripts/` — icons and service-worker generation
-- `backend/` — API endpoints, database model, migrations, and meal seed data
+- `backend/` — API endpoints, database model, and migrations
 - `backend.tests/` — API integration tests
 - `compose.yaml` — Unraid container configuration
 

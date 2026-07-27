@@ -40,7 +40,7 @@ public sealed class FileSystemMealImageStore(string imagesPath) : IMealImageStor
     {
         if (string.IsNullOrWhiteSpace(filename) ||
             !string.Equals(Path.GetFileName(filename), filename, StringComparison.Ordinal) ||
-            !filename.StartsWith("managed-", StringComparison.Ordinal))
+            !IsGeneratedManagedFilename(filename))
         {
             return Task.CompletedTask;
         }
@@ -48,6 +48,34 @@ public sealed class FileSystemMealImageStore(string imagesPath) : IMealImageStor
         var path = Path.Combine(imagesPath, filename);
         File.Delete(path);
         return Task.CompletedTask;
+    }
+
+    private static bool IsGeneratedManagedFilename(string filename)
+    {
+        const string prefix = "managed-";
+        var extension = Path.GetExtension(filename);
+
+        if (!filename.StartsWith(prefix, StringComparison.Ordinal) ||
+            extension is not (".jpg" or ".png" or ".webp"))
+        {
+            return false;
+        }
+
+        var identifier = filename.AsSpan(prefix.Length, filename.Length - prefix.Length - extension.Length);
+        if (identifier.Length != 32)
+        {
+            return false;
+        }
+
+        foreach (var character in identifier)
+        {
+            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string GetExtension(IFormFile file)

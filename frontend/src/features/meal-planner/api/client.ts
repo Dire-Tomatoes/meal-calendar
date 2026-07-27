@@ -36,9 +36,10 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T | undefined> {
+  const isFormData = options.body instanceof FormData;
   const headers = {
     Accept: "application/json",
-    ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+    ...(options.body === undefined || isFormData ? {} : { "Content-Type": "application/json" }),
     ...options.headers
   };
   const response = await fetch(path, { ...options, headers });
@@ -91,6 +92,44 @@ export function moveMeal(fromDate: DateKey, toDate: DateKey): Promise<undefined>
 
 export function removeMeal(date: DateKey): Promise<undefined> {
   return request<never>(`/api/v1/schedule/${encodeURIComponent(date)}`, {
+    method: "DELETE"
+  });
+}
+
+export interface RecipeFormValues {
+  name: string;
+  emoji: string;
+  image: File | null;
+  removeImage: boolean;
+}
+
+function recipeFormData(values: RecipeFormValues): FormData {
+  const form = new FormData();
+  form.append("name", values.name);
+  form.append("emoji", values.emoji);
+  form.append("removeImage", String(values.removeImage));
+  if (values.image !== null) {
+    form.append("image", values.image);
+  }
+  return form;
+}
+
+export async function createRecipe(values: RecipeFormValues): Promise<Meal> {
+  return (await request<Meal>("/api/v1/meals", {
+    method: "POST",
+    body: recipeFormData(values)
+  })) as Meal;
+}
+
+export async function updateRecipe(id: MealId, values: RecipeFormValues): Promise<Meal> {
+  return (await request<Meal>(`/api/v1/meals/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: recipeFormData(values)
+  })) as Meal;
+}
+
+export function deleteRecipe(id: MealId): Promise<undefined> {
+  return request<never>(`/api/v1/meals/${encodeURIComponent(id)}`, {
     method: "DELETE"
   });
 }

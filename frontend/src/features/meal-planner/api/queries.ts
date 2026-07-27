@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DateKey, DateRange, MealId } from "../model/types";
-import { assignMeal, getMeals, getSchedule, moveMeal, removeMeal } from "./client";
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { DateKey, DateRange, Meal, MealId } from "../model/types";
+import {
+  assignMeal,
+  createRecipe,
+  deleteRecipe,
+  getMeals,
+  getSchedule,
+  moveMeal,
+  removeMeal,
+  type RecipeFormValues,
+  updateRecipe
+} from "./client";
 
 interface AssignVariables {
   date: DateKey;
@@ -14,6 +25,11 @@ interface MoveVariables {
 
 interface RemoveVariables {
   date: DateKey;
+}
+
+interface UpdateRecipeVariables {
+  id: MealId;
+  values: RecipeFormValues;
 }
 
 export function useMeals() {
@@ -47,6 +63,35 @@ export function useScheduleMutations() {
     remove: useMutation({
       mutationFn: ({ date }: RemoveVariables) => removeMeal(date),
       onSettled: invalidateSchedules
+    })
+  };
+}
+
+export function useRecipeMutations(): {
+  create: UseMutationResult<Meal, Error, RecipeFormValues>;
+  update: UseMutationResult<Meal, Error, UpdateRecipeVariables>;
+  remove: UseMutationResult<undefined, Error, MealId>;
+} {
+  const queryClient = useQueryClient();
+  const invalidateMeals = () => queryClient.invalidateQueries({ queryKey: ["meals"] });
+  const invalidateMealsAndSchedules = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["meals"] }),
+      queryClient.invalidateQueries({ queryKey: ["schedule"] })
+    ]);
+
+  return {
+    create: useMutation({
+      mutationFn: createRecipe,
+      onSettled: invalidateMeals
+    }),
+    update: useMutation({
+      mutationFn: ({ id, values }: UpdateRecipeVariables) => updateRecipe(id, values),
+      onSettled: invalidateMeals
+    }),
+    remove: useMutation({
+      mutationFn: deleteRecipe,
+      onSettled: invalidateMealsAndSchedules
     })
   };
 }

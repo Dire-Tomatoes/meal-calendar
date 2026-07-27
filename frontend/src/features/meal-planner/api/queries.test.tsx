@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { useSchedule, useScheduleMutations } from "./queries";
+import { useMeals, useRecipeMutations, useSchedule, useScheduleMutations } from "./queries";
 
 describe("meal planner query hooks", () => {
   const fetchMock = vi.fn();
@@ -178,4 +178,181 @@ describe("meal planner query hooks", () => {
       );
     }
   );
+
+  test.each([
+    {
+      label: "create",
+      mutate: (mutations: ReturnType<typeof useRecipeMutations>) =>
+        mutations.create.mutateAsync({
+          name: "Pasta",
+          emoji: "🍝",
+          image: null,
+          removeImage: false
+        })
+    },
+    {
+      label: "update",
+      mutate: (mutations: ReturnType<typeof useRecipeMutations>) =>
+        mutations.update.mutateAsync({
+          id: "pasta",
+          values: { name: "Pasta", emoji: "🍝", image: null, removeImage: false }
+        })
+    }
+  ])("refetches meals after a successful recipe $label", async ({ mutate }) => {
+    let mealRequests = 0;
+    fetchMock.mockImplementation(async (path: string, options?: RequestInit) => {
+      if (path === "/api/v1/meals" && options?.method === undefined) {
+        mealRequests += 1;
+        return new Response(
+          JSON.stringify([
+            {
+              id: "pasta",
+              name: mealRequests === 1 ? "Original pasta" : "Updated pasta",
+              emoji: "🍝",
+              imageUrl: null
+            }
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (
+        (path === "/api/v1/meals" && options?.method === "POST") ||
+        (path === "/api/v1/meals/pasta" && options?.method === "PUT")
+      ) {
+        return new Response(
+          JSON.stringify({ id: "pasta", name: "Pasta", emoji: "🍝", imageUrl: null }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => ({ meals: useMeals(), mutations: useRecipeMutations() }),
+      { wrapper }
+    );
+
+    await waitFor(() => {
+      expect(result.current.meals.data?.[0]?.name).toBe("Original pasta");
+    });
+
+    await act(async () => {
+      await mutate(result.current.mutations);
+    });
+
+    await waitFor(() => {
+      expect(result.current.meals.data?.[0]?.name).toBe("Updated pasta");
+    });
+    expect(mealRequests).toBe(2);
+  });
+
+  test("refetches meals and schedules after deleting a recipe", async () => {
+    let mealRequests = 0;
+    let scheduleRequests = 0;
+    fetchMock.mockImplementation(async (path: string, options?: RequestInit) => {
+      if (path === "/api/v1/meals" && options?.method === undefined) {
+        mealRequests += 1;
+        return new Response(
+          JSON.stringify([
+            { id: "pasta", name: `Pasta ${mealRequests}`, emoji: "🍝", imageUrl: null }
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (path.startsWith("/api/v1/schedule?")) {
+        scheduleRequests += 1;
+        return new Response(
+          JSON.stringify({ days: { "2026-07-24": `pasta-${scheduleRequests}` } }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (path === "/api/v1/meals/pasta" && options?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => ({
+        meals: useMeals(),
+        schedule: useSchedule(primaryRange),
+        mutations: useRecipeMutations()
+      }),
+      { wrapper }
+    );
+
+    await waitFor(() => {
+      expect(result.current.meals.data?.[0]?.name).toBe("Pasta 1");
+      expect(result.current.schedule.data?.days).toEqual({ "2026-07-24": "pasta-1" });
+    });
+
+    await act(async () => {
+      await result.current.mutations.remove.mutateAsync("pasta");
+    });
+
+    await waitFor(() => {
+      expect(result.current.meals.data?.[0]?.name).toBe("Pasta 2");
+      expect(result.current.schedule.data?.days).toEqual({ "2026-07-24": "pasta-2" });
+    });
+    expect(mealRequests).toBe(2);
+    expect(scheduleRequests).toBe(2);
+  });
+
+  test("refetches meals after a failed recipe mutation", async () => {
+    let mealRequests = 0;
+    fetchMock.mockImplementation(async (path: string, options?: RequestInit) => {
+      if (path === "/api/v1/meals" && options?.method === undefined) {
+        mealRequests += 1;
+        return new Response(
+          JSON.stringify([
+            {
+              id: "pasta",
+              name: mealRequests === 1 ? "Original pasta" : "Refetched pasta",
+              emoji: "🍝",
+              imageUrl: null
+            }
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (path === "/api/v1/meals" && options?.method === "POST") {
+        return new Response(
+          JSON.stringify({ title: "Invalid recipe", detail: "Name already exists" }),
+          { status: 409, headers: { "Content-Type": "application/problem+json" } }
+        );
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => ({ meals: useMeals(), mutations: useRecipeMutations() }),
+      { wrapper }
+    );
+
+    await waitFor(() => {
+      expect(result.current.meals.data?.[0]?.name).toBe("Original pasta");
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.mutations.create.mutateAsync({
+          name: "Pasta",
+          emoji: "🍝",
+          image: null,
+          removeImage: false
+        })
+      ).rejects.toThrow("Name already exists");
+    });
+
+    await waitFor(() => {
+      expect(result.current.meals.data?.[0]?.name).toBe("Refetched pasta");
+    });
+    expect(mealRequests).toBe(2);
+  });
 });

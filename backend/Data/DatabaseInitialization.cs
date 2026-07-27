@@ -10,6 +10,5 @@ public static class DatabaseInitialization
         var context = scope.ServiceProvider.GetRequiredService<MealCalendarDbContext>();
 
         await context.Database.MigrateAsync();
-        await MealSeed.SeedAsync(context, CancellationToken.None);
     }
 }

@@ -26,7 +26,7 @@ public sealed class MealCalendarDbContext(DbContextOptions<MealCalendarDbContext
             scheduleDay.HasOne(entity => entity.Meal)
                 .WithMany(entity => entity.ScheduleDays)
                 .HasForeignKey(entity => entity.MealId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

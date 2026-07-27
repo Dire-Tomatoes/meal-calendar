@@ -59,7 +59,7 @@ partial class MealCalendarDbContextModelSnapshot : ModelSnapshot
             b.HasOne("MealCalendar.Api.Models.Meal", "Meal")
                 .WithMany("ScheduleDays")
                 .HasForeignKey("MealId")
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired();
 
             b.Navigation("Meal");

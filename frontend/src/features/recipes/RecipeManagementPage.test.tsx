@@ -124,8 +124,9 @@ describe("RecipeManagementPage", () => {
     await screen.findByText("Pasta");
 
     const image = new File(["image"], "dinner.png", { type: "image/png" });
+    const imageInput = screen.getByLabelText("Image") as HTMLInputElement;
     await fillRecipeForm("Miso soup", "🍲");
-    fireEvent.change(screen.getByLabelText("Image"), {
+    fireEvent.change(imageInput, {
       target: { files: [image] }
     });
     fireEvent.click(screen.getByRole("button", { name: "Add recipe" }));
@@ -140,6 +141,9 @@ describe("RecipeManagementPage", () => {
       expect((request?.[1] as RequestInit).body).toBeInstanceOf(FormData);
       expect(((request?.[1] as RequestInit).body as FormData).get("image")).toBe(image);
     });
+    await waitFor(() =>
+      expect((screen.getByLabelText("Image") as HTMLInputElement).files).toHaveLength(0)
+    );
   });
 
   test("pre-fills an edit form and updates the selected recipe", async () => {
@@ -170,6 +174,42 @@ describe("RecipeManagementPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel editing" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Ramen" }));
     expect(screen.getByLabelText("Remove current image")).toBeInTheDocument();
+  });
+
+  test("clears a selected replacement image when editing is cancelled", async () => {
+    renderPage();
+    await screen.findByText("Ramen");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Ramen" }));
+    const imageInput = screen.getByLabelText("Image") as HTMLInputElement;
+    fireEvent.change(imageInput, {
+      target: {
+        files: [new File(["image"], "replacement.png", { type: "image/png" })]
+      }
+    });
+    expect(imageInput.files).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel editing" }));
+
+    expect((screen.getByLabelText("Image") as HTMLInputElement).files).toHaveLength(0);
+  });
+
+  test("clears a selected replacement image when current image removal is selected", async () => {
+    renderPage();
+    await screen.findByText("Ramen");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Ramen" }));
+    const imageInput = screen.getByLabelText("Image") as HTMLInputElement;
+    fireEvent.change(imageInput, {
+      target: {
+        files: [new File(["image"], "replacement.png", { type: "image/png" })]
+      }
+    });
+    expect(imageInput.files).toHaveLength(1);
+
+    fireEvent.click(screen.getByLabelText("Remove current image"));
+
+    expect((screen.getByLabelText("Image") as HTMLInputElement).files).toHaveLength(0);
   });
 
   test("confirms scheduled calendar entries will be removed before deleting", async () => {

@@ -553,7 +553,7 @@ input:focus-visible {
   color: white;
 }
 
-.recipe-form-actions button:last-child,
+.recipe-form-actions .recipe-form-cancel,
 .recipe-card-actions button:first-child {
   color: var(--green);
 }

@@ -43,6 +43,7 @@ export function RecipeManagementPage() {
   const mutations = useRecipeMutations();
   const [editor, setEditor] = useState<EditorState>(emptyEditor);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [imageInputKey, setImageInputKey] = useState(0);
   const meals = mealsQuery.data ?? [];
   const isPending =
     mutations.create.isPending ||
@@ -53,7 +54,12 @@ export function RecipeManagementPage() {
     : null;
   const isEditing = editor.id !== null;
 
-  const resetEditor = () => setEditor(emptyEditor());
+  const clearImageInput = () => setImageInputKey((current) => current + 1);
+
+  const resetEditor = () => {
+    clearImageInput();
+    setEditor(emptyEditor());
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -150,6 +156,7 @@ export function RecipeManagementPage() {
               Image
               <input
                 id="recipe-image"
+                key={imageInputKey}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 disabled={isPending}
@@ -169,13 +176,16 @@ export function RecipeManagementPage() {
                   type="checkbox"
                   disabled={isPending}
                   checked={editor.removeImage}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      clearImageInput();
+                    }
                     setEditor((current) => ({
                       ...current,
                       image: null,
                       removeImage: event.target.checked
-                    }))
-                  }
+                    }));
+                  }}
                 />
                 Remove current image
               </label>
@@ -192,7 +202,12 @@ export function RecipeManagementPage() {
                 {submitLabel}
               </button>
               {isEditing ? (
-                <button type="button" disabled={isPending} onClick={resetEditor}>
+                <button
+                  className="recipe-form-cancel"
+                  type="button"
+                  disabled={isPending}
+                  onClick={resetEditor}
+                >
                   Cancel editing
                 </button>
               ) : null}

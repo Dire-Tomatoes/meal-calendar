@@ -139,7 +139,14 @@ docker compose start meal-calendar
 
 Stopping the service ensures the SQLite database and any `-wal`/`-shm` sidecars are captured consistently. Store backups outside the appdata directories and include them in Unraid's regular backup schedule.
 
-To restore, stop the service, move the current data and images directories aside, copy the selected backup into the two configured paths, restore data ownership and image read permissions, then start the service. Check `/api/health` and `/api/v1/meals` before discarding the moved-aside copy. Never overwrite a live SQLite database.
+To restore, stop the service, move the current data and images directories aside, and copy the selected backup into the two configured paths. Restore writable ownership for both directories before starting the service:
+
+```bash
+chown -R 1654:1654 /mnt/user/appdata/meal-calendar/data
+chown -R 1654:1654 /mnt/user/appdata/meal-calendar/images
+```
+
+Check `/api/health` and `/api/v1/meals` before discarding the moved-aside copy. Never overwrite a live SQLite database.
 
 ## Updates and PWA refresh
 

@@ -828,7 +828,7 @@ input:focus-visible {
 
 @media (max-width: 1099px) {
   .planner-shell > header {
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .planner-shell > header h1 {
@@ -844,9 +844,9 @@ input:focus-visible {
     grid-column: 1;
   }
 
-  .display-options {
-    grid-column: 1 / -1;
-    grid-row: 3;
+  .planner-shell > header > .display-options {
+    grid-column: 4;
+    grid-row: 2;
     width: 100%;
   }
 
@@ -955,13 +955,14 @@ input:focus-visible {
     gap: 0.35rem;
   }
 
-  .planner-shell > header > button {
-    padding-inline: 0.65rem;
+  .planner-shell > header > button,
+  .planner-shell > header > .display-options > summary {
+    padding-inline: 0.4rem;
     font-size: 0.82rem;
   }
 
   .planner-shell > header {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .planner-shell > header > button {

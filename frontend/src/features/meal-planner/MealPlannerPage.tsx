@@ -20,6 +20,7 @@ import { MealTile } from "./components/MealTile";
 import { MonthCalendar } from "./components/MonthCalendar";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { getGridRange } from "./model/calendar";
+import { initialGridWeekCount, type GridWeekCount } from "./model/gridWeekCount";
 import { resolveDragIntent } from "./model/dragIntent";
 import { dispatchScheduleCommand } from "./model/scheduleCommand";
 import type {
@@ -56,6 +57,9 @@ export function MealPlannerPage() {
     firstOfMonth(new Date())
   );
   const [activeDrag, setActiveDrag] = useState<MealDragData | null>(null);
+  const [gridWeekCount, setGridWeekCount] = useState<GridWeekCount>(() =>
+    initialGridWeekCount(localStorage.getItem("meal-calendar-grid-weeks"))
+  );
   const range = useMemo(() => getGridRange(visibleMonth), [visibleMonth]);
   const mealsQuery = useMeals();
   const scheduleQuery = useSchedule(range);
@@ -151,6 +155,11 @@ export function MealPlannerPage() {
       data-pending={isSaving || undefined}
     >
       <CalendarToolbar
+        gridWeekCount={gridWeekCount}
+        onGridWeekCountChange={(count) => {
+          localStorage.setItem("meal-calendar-grid-weeks", String(count));
+          setGridWeekCount(count);
+        }}
         month={visibleMonth}
         onPrevious={() =>
           setVisibleMonth(
@@ -193,6 +202,7 @@ export function MealPlannerPage() {
           <div className="planner-layout">
             <div className="calendar-panel">
               <MonthCalendar
+                weekCount={gridWeekCount}
                 month={visibleMonth}
                 mealsByDate={mealsByDate}
               />

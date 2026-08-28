@@ -1,4 +1,5 @@
 import { fromDateKey, getMonthGrid } from "../model/calendar";
+import type { GridWeekCount } from "../model/gridWeekCount";
 import type { DateKey, Meal } from "../model/types";
 import { DaySlot } from "./DaySlot";
 
@@ -14,12 +15,13 @@ const weekdays = [
 
 interface MonthCalendarProps {
   month: Date;
+  weekCount?: GridWeekCount;
   mealsByDate: Partial<Record<DateKey, Meal>>;
 }
 
-export function MonthCalendar({ month, mealsByDate }: MonthCalendarProps) {
+export function MonthCalendar({ month, mealsByDate, weekCount = 6 }: MonthCalendarProps) {
   const days = getMonthGrid(month);
-  const weeks = Array.from({ length: 6 }, (_, weekIndex) =>
+  const weeks = Array.from({ length: weekCount }, (_, weekIndex) =>
     days.slice(weekIndex * 7, weekIndex * 7 + 7)
   );
 

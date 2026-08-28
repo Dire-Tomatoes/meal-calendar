@@ -52,6 +52,11 @@ Open the Vite URL printed in the terminal. Vite proxies `/api` and `/images` to 
 
 ## Test changes
 
+The planner toolbar offers 4, 5, or 6 visible weeks (6 by default).
+This preference is saved per browser. Shorter views show the first rows of
+the selected month and can omit later dates; choose 6 weeks to see them again.
+Hidden assignments are retained, and schedule query coverage is unchanged.
+
 Run both automated test suites:
 
 ```powershell

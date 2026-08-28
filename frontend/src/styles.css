@@ -153,6 +153,24 @@ input:focus-visible {
   letter-spacing: -0.035em;
 }
 
+.week-count-switch {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-self: end;
+  max-width: 100%;
+  gap: 0.25rem;
+}
+
+.planner-shell > header .week-count-switch button {
+  min-height: 44px;
+  padding: 0.4rem 0.75rem;
+}
+
+.week-count-switch button[aria-pressed="true"] {
+  background: var(--green);
+  color: white;
+}
+
 .planner-shell > header button:first-child,
 .planner-shell > header button:last-child {
   border-color: var(--green);

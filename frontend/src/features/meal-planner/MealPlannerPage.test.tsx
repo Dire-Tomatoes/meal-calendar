@@ -87,6 +87,7 @@ describe("MealPlannerPage", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
+    localStorage.clear();
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -132,6 +133,22 @@ describe("MealPlannerPage", () => {
       </QueryClientProvider>
     );
   }
+
+  test("persists the selected week count and restores hidden dates", async () => {
+    const view = renderPage();
+    await screen.findAllByText("Tacos");
+    fireEvent.click(screen.getByRole("button", { name: "4 weeks" }));
+    expect(screen.getAllByRole("gridcell")).toHaveLength(28);
+    expect(localStorage.getItem("meal-calendar-grid-weeks")).toBe("4");
+    view.unmount();
+    renderPage();
+    await screen.findAllByText("Tacos");
+    expect(screen.getAllByRole("gridcell")).toHaveLength(28);
+    fireEvent.click(screen.getByRole("button", { name: "5 weeks" }));
+    expect(screen.getAllByRole("gridcell")).toHaveLength(35);
+    fireEvent.click(screen.getByRole("button", { name: "6 weeks" }));
+    expect(screen.getAllByRole("gridcell")).toHaveLength(42);
+  });
 
   async function finishDrag(
     activeData: MealDragData,

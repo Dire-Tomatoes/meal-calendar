@@ -6,6 +6,10 @@ export interface Meal {
   name: string;
   emoji: string;
   imageUrl: string | null;
+  notes?: string;
+  sourceUrl?: string | null;
+  tags?: string[];
+  isFavorite?: boolean;
 }
 
 export interface Schedule {

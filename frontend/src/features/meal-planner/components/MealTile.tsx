@@ -4,6 +4,7 @@ import type {
   DraggableSyntheticListeners
 } from "@dnd-kit/core";
 import type { Meal } from "../model/types";
+import { RecipeEmoji } from "../../../components/RecipeEmoji";
 
 type MealTileVariant = "dugout" | "scheduled";
 
@@ -61,7 +62,7 @@ export function MealTile({
         />
       ) : (
         <span aria-hidden="true" style={{ fontSize: "2rem" }}>
-          {meal.emoji}
+          <RecipeEmoji emoji={meal.emoji} />
         </span>
       )}
       <span>{meal.name}</span>

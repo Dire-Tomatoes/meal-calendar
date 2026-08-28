@@ -13,9 +13,9 @@ afterEach(cleanup);
 
 describe("MealTile", () => {
   test("renders a meal name and emoji without an image when imageUrl is absent", () => {
-    render(<MealTile meal={{ ...tacos, imageUrl: null }} variant="dugout" />);
+    const { container } = render(<MealTile meal={{ ...tacos, imageUrl: null }} variant="dugout" />);
 
-    expect(screen.getByText("🌮")).toBeInTheDocument();
+    expect(container.querySelector(".recipe-emoji img")).toHaveAttribute("src", expect.stringContaining("1f32e"));
     expect(screen.getByText("Tacos")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
@@ -30,12 +30,12 @@ describe("MealTile", () => {
   });
 
   test("replaces a broken meal image with the emoji fallback", () => {
-    render(<MealTile meal={tacos} variant="scheduled" />);
+    const { container } = render(<MealTile meal={tacos} variant="scheduled" />);
 
     fireEvent.error(screen.getByRole("img", { name: /tacos/i }));
 
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(screen.getByText("🌮")).toBeInTheDocument();
+    expect(container.querySelector(".recipe-emoji img")).toHaveAttribute("src", expect.stringContaining("1f32e"));
   });
 
   test.each(["dugout", "scheduled"] as const)(

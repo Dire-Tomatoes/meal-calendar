@@ -8,13 +8,20 @@ type Recipe = {
   name: string;
   emoji: string;
   imageUrl: string | null;
+  notes?: string;
+  sourceUrl?: string | null;
+  tags?: string[];
+  isFavorite?: boolean;
 };
 
 const pasta: Recipe = {
   id: "pasta",
   name: "Pasta",
   emoji: "🍝",
-  imageUrl: null
+  imageUrl: null,
+  notes: "Weeknight staple",
+  tags: ["quick", "Italian"],
+  isFavorite: true
 };
 
 const ramen: Recipe = {
@@ -130,6 +137,34 @@ describe("RecipeManagementPage", () => {
     });
   }
 
+  test("keeps emoji verification compact and blocks unsupported input", async () => {
+    renderPage();
+    await screen.findByText("Pasta");
+    await fillRecipeForm("Mystery soup", "not emoji");
+    expect(screen.getByRole("button", { name: "Add recipe" })).toBeDisabled();
+    expect(screen.queryByText("Emoji verification")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use plate fallback" })).not.toBeInTheDocument();
+    expect(screen.getByText("Choose 1–3 supported emojis.")).toBeInTheDocument();
+    await fillRecipeForm("Mystery soup", "🍽️");
+    expect(screen.queryByText("Choose 1–3 supported emojis.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add recipe" }));
+    expect(await screen.findByText("Mystery soup")).toBeInTheDocument();
+    expect(recipes.at(-1)?.emoji).toBe("🍽️");
+  });
+
+  test("saves up to three icons and rejects a fourth or an unsupported selection", async () => {
+    renderPage();
+    await screen.findByText("Pasta");
+    await fillRecipeForm("Combo", "🍝🌮🍲🍕");
+    expect(screen.getByRole("button", { name: "Add recipe" })).toBeDisabled();
+    await fillRecipeForm("Combo", "🍝hello");
+    expect(screen.getByRole("button", { name: "Add recipe" })).toBeDisabled();
+    await fillRecipeForm("Combo", "👩🏽‍🍳👨🏽‍🍳🍲");
+    fireEvent.click(screen.getByRole("button", { name: "Add recipe" }));
+    expect(await screen.findByText("Combo")).toBeInTheDocument();
+    expect(recipes.at(-1)?.emoji).toBe("👩🏽‍🍳👨🏽‍🍳🍲");
+  });
+
   test("creates a recipe and displays the refetched row", async () => {
     renderPage();
     await screen.findByText("Pasta");
@@ -143,6 +178,72 @@ describe("RecipeManagementPage", () => {
       "/api/v1/meals",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  test("filters recipes by metadata and favorite status", async () => {
+    renderPage();
+    await screen.findByText("Pasta");
+
+    fireEvent.change(screen.getByLabelText("Search recipes"), {
+      target: { value: "italian" }
+    });
+    expect(screen.getByText("Pasta")).toBeInTheDocument();
+    expect(screen.queryByText("Ramen")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search recipes"), {
+      target: { value: "" }
+    });
+    fireEvent.click(screen.getByLabelText("Favorites only"));
+    expect(screen.getByText("Pasta")).toBeInTheDocument();
+    expect(screen.queryByText("Ramen")).not.toBeInTheDocument();
+  });
+
+  test("toggles a favorite directly from its recipe card", async () => {
+    renderPage();
+    await screen.findByText("Ramen");
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Ramen to favorites" }));
+
+    await waitFor(() => {
+      const request = fetchMock.mock.calls.find(
+        ([path, options]) => path === "/api/v1/meals/ramen" &&
+          (options as RequestInit | undefined)?.method === "PUT"
+      );
+      const form = (request?.[1] as RequestInit).body as FormData;
+      expect(form.get("isFavorite")).toBe("true");
+    });
+  });
+
+  test("pre-fills and submits recipe metadata", async () => {
+    renderPage();
+    await screen.findByText("Pasta");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Pasta" }));
+    expect(screen.getByLabelText("Tags")).toHaveValue("quick, Italian");
+    expect(screen.getByLabelText("Notes")).toHaveValue("Weeknight staple");
+    expect(screen.getByLabelText("Favorite recipe")).toBeChecked();
+    fireEvent.change(screen.getByLabelText("Source URL"), {
+      target: { value: "https://example.com/pasta" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save recipe" }));
+
+    await waitFor(() => {
+      const request = fetchMock.mock.calls.find(
+        ([path, options]) => path === "/api/v1/meals/pasta" &&
+          (options as RequestInit | undefined)?.method === "PUT"
+      );
+      const form = (request?.[1] as RequestInit).body as FormData;
+      expect(form.get("tags")).toBe("quick,Italian");
+      expect(form.get("notes")).toBe("Weeknight staple");
+      expect(form.get("sourceUrl")).toBe("https://example.com/pasta");
+      expect(form.get("isFavorite")).toBe("true");
+    });
+  });
+
+  test("does not expose the abandoned duplicate action", async () => {
+    renderPage();
+    await screen.findByText("Ramen");
+    expect(screen.queryAllByRole("button", { name: /Duplicate/ })).toHaveLength(0);
   });
 
   test("includes a selected image file in the create request", async () => {
@@ -401,8 +502,10 @@ describe("RecipeManagementPage", () => {
 
     resolveCreate(jsonResponse({ id: "miso", name: "Miso soup", emoji: "🍲", imageUrl: null }, 201));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Add recipe" })).toBeEnabled()
+      expect(screen.getByRole("button", { name: "Delete Pasta" })).toBeEnabled()
     );
+    await fillRecipeForm("Next soup", "🍲");
+    expect(screen.getByRole("button", { name: "Add recipe" })).toBeEnabled();
   });
 
   test("keeps recipes visible and shows a Problem Details error", async () => {

@@ -47,7 +47,7 @@ public static class MealsEndpoints
             return InvalidRecipe(exception.Message);
         }
 
-        if (!TryValidate(request, out var name, out var emoji, out var validationProblem))
+        if (!TryValidate(request, out var values, out var validationProblem))
         {
             return validationProblem;
         }
@@ -68,9 +68,13 @@ public static class MealsEndpoints
         var meal = new Meal
         {
             Id = Guid.NewGuid().ToString("N"),
-            Name = name,
-            Emoji = emoji,
-            ImagePath = newFilename
+            Name = values.Name,
+            Emoji = values.Emoji,
+            ImagePath = newFilename,
+            Notes = values.Notes,
+            SourceUrl = values.SourceUrl,
+            Tags = string.Join(',', values.Tags),
+            IsFavorite = values.IsFavorite
         };
 
         context.Meals.Add(meal);
@@ -105,7 +109,7 @@ public static class MealsEndpoints
             return InvalidRecipe(exception.Message);
         }
 
-        if (!TryValidate(request, out var name, out var emoji, out var validationProblem))
+        if (!TryValidate(request, out var values, out var validationProblem))
         {
             return validationProblem;
         }
@@ -135,8 +139,12 @@ public static class MealsEndpoints
         }
 
         var previousFilename = meal.ImagePath;
-        meal.Name = name;
-        meal.Emoji = emoji;
+        meal.Name = values.Name;
+        meal.Emoji = values.Emoji;
+        meal.Notes = values.Notes;
+        meal.SourceUrl = values.SourceUrl;
+        meal.Tags = string.Join(',', values.Tags);
+        meal.IsFavorite = values.IsFavorite;
         if (newFilename is not null)
         {
             meal.ImagePath = newFilename;
@@ -199,15 +207,45 @@ public static class MealsEndpoints
 
     private static bool TryValidate(
         RecipeMutationRequest request,
-        out string name,
-        out string emoji,
+        out ValidatedRecipe values,
         out IResult validationProblem)
     {
-        name = request.Name?.Trim() ?? string.Empty;
-        emoji = request.Emoji?.Trim() ?? string.Empty;
-        validationProblem = InvalidRecipe("A name of up to 120 characters and an emoji of up to 16 characters are required.");
+        var name = request.Name?.Trim() ?? string.Empty;
+        var emoji = request.Emoji?.Trim() ?? string.Empty;
+        var notes = request.Notes?.Trim() ?? string.Empty;
+        var sourceUrl = string.IsNullOrWhiteSpace(request.SourceUrl)
+            ? null
+            : request.SourceUrl.Trim();
+        var tags = (request.Tags ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        values = new(name, emoji, notes, sourceUrl, tags, request.IsFavorite);
+        validationProblem = InvalidRecipe("A name of up to 120 characters and emoji icons of up to 64 characters are required.");
 
-        return name.Length is > 0 and <= 120 && emoji.Length is > 0 and <= 16;
+        if (name.Length is 0 or > 120 || emoji.Length is 0 or > 64)
+        {
+            return false;
+        }
+
+        if (notes.Length > 2000 ||
+            tags.Length > 10 ||
+            tags.Any(tag => tag.Length > 30))
+        {
+            validationProblem = InvalidRecipe("Notes must be at most 2,000 characters and tags are limited to ten labels of 30 characters.");
+            return false;
+        }
+
+        if (sourceUrl is not null &&
+            (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out var uri) ||
+             uri.Scheme is not ("http" or "https") ||
+             sourceUrl.Length > 500))
+        {
+            validationProblem = InvalidRecipe("The source URL must be an absolute HTTP or HTTPS URL of at most 500 characters.");
+            return false;
+        }
+
+        return true;
     }
 
     private static MealResponse ToResponse(Meal meal) =>
@@ -217,7 +255,19 @@ public static class MealsEndpoints
             meal.Emoji,
             meal.ImagePath is null
                 ? null
-                : $"/images/meals/{Uri.EscapeDataString(meal.ImagePath)}");
+                : $"/images/meals/{Uri.EscapeDataString(meal.ImagePath)}",
+            meal.Notes,
+            meal.SourceUrl,
+            meal.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            meal.IsFavorite);
+
+    private sealed record ValidatedRecipe(
+        string Name,
+        string Emoji,
+        string Notes,
+        string? SourceUrl,
+        IReadOnlyList<string> Tags,
+        bool IsFavorite);
 
     private static IResult InvalidRecipe(string detail) =>
         ApiProblem.Create(400, "Invalid recipe", "invalid_recipe", detail);

@@ -100,7 +100,16 @@ describe("meal planner API client", () => {
     );
 
     await expect(
-      createRecipe({ name: "Tacos", emoji: "🌮", image, removeImage: false })
+      createRecipe({
+        name: "Tacos",
+        emoji: "🌮",
+        image,
+        removeImage: false,
+        notes: "Feeds four",
+        sourceUrl: "https://example.com/tacos",
+        tags: ["quick", "family"],
+        isFavorite: true
+      })
     ).resolves.toEqual({
       id: "tacos",
       name: "Tacos",
@@ -118,6 +127,10 @@ describe("meal planner API client", () => {
     expect(form.get("emoji")).toBe("🌮");
     expect(form.get("removeImage")).toBe("false");
     expect(form.get("image")).toBe(image);
+    expect(form.get("notes")).toBe("Feeds four");
+    expect(form.get("sourceUrl")).toBe("https://example.com/tacos");
+    expect(form.get("tags")).toBe("quick,family");
+    expect(form.get("isFavorite")).toBe("true");
   });
 
   test("updates a recipe at its encoded ID with multipart form fields", async () => {

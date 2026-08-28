@@ -71,6 +71,50 @@ public sealed class MealsEndpointsTests
         Assert.Equal("Miso Soup", recipe.Name);
         Assert.Equal("🍲", recipe.Emoji);
         Assert.Null(recipe.ImageUrl);
+        Assert.Equal("", recipe.Notes);
+        Assert.Null(recipe.SourceUrl);
+        Assert.Empty(recipe.Tags);
+        Assert.False(recipe.IsFavorite);
+    }
+
+    [Fact]
+    public async Task CreateRecipeNormalizesAndReturnsMetadata()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        using var form = CreateRecipeForm(
+            "Miso Soup",
+            "🍲",
+            notes: "  Family favorite  ",
+            sourceUrl: "https://example.com/miso",
+            tags: " Quick,vegan,quick ",
+            isFavorite: true);
+
+        using var response = await client.PostAsync("/api/v1/meals", form);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var recipe = await response.Content.ReadFromJsonAsync<MealResponse>(JsonOptions);
+        Assert.NotNull(recipe);
+        Assert.Equal("Family favorite", recipe.Notes);
+        Assert.Equal("https://example.com/miso", recipe.SourceUrl);
+        Assert.Equal(["Quick", "vegan"], recipe.Tags);
+        Assert.True(recipe.IsFavorite);
+    }
+
+    [Theory]
+    [InlineData("ftp://example.com/recipe", "tag")]
+    [InlineData("not-a-url", "tag")]
+    [InlineData("", "one,two,three,four,five,six,seven,eight,nine,ten,eleven")]
+    public async Task CreateRecipeRejectsInvalidMetadata(string sourceUrl, string tags)
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        using var form = CreateRecipeForm("Miso Soup", "🍲", sourceUrl: sourceUrl, tags: tags);
+
+        using var response = await client.PostAsync("/api/v1/meals", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
     }
 
     [Fact]
@@ -131,16 +175,34 @@ public sealed class MealsEndpointsTests
     }
 
     [Fact]
-    public async Task CreateRecipeRejectsEmojiLongerThanSixteenCharacters()
+    public async Task CreateRecipeRejectsEmojiLongerThanSixtyFourCharacters()
     {
         await using var factory = new MealCalendarApiFactory();
         using var client = factory.CreateClient();
-        using var form = CreateRecipeForm("Miso Soup", new string('a', 17));
+        using var form = CreateRecipeForm("Miso Soup", new string('a', 65));
 
         using var response = await client.PostAsync("/api/v1/meals", form);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("invalid_recipe", await ReadProblemCodeAsync(response));
+    }
+
+    [Fact]
+    public async Task RecipeRoundTripsThreeComplexEmoji()
+    {
+        await using var factory = new MealCalendarApiFactory();
+        using var client = factory.CreateClient();
+        const string icons = "👩🏽‍🍳👨🏽‍🍳👩🏻‍🍳";
+        using var form = CreateRecipeForm("Combo", icons);
+        using var response = await client.PostAsync("/api/v1/meals", form);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var recipe = await response.Content.ReadFromJsonAsync<MealResponse>(JsonOptions);
+        Assert.NotNull(recipe);
+        using var updateForm = CreateRecipeForm("Combo updated", icons);
+        using var updated = await client.PutAsync($"/api/v1/meals/{recipe.Id}", updateForm);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var meals = await client.GetFromJsonAsync<List<MealResponse>>("/api/v1/meals", JsonOptions);
+        Assert.Equal(icons, Assert.Single(meals!).Emoji);
     }
 
     [Fact]
@@ -371,7 +433,11 @@ public sealed class MealsEndpointsTests
         string emoji,
         HttpContent? image = null,
         bool removeImage = false,
-        string? removeImageText = null)
+        string? removeImageText = null,
+        string? notes = null,
+        string? sourceUrl = null,
+        string? tags = null,
+        bool isFavorite = false)
     {
         var form = new MultipartFormDataContent
         {
@@ -383,6 +449,11 @@ public sealed class MealsEndpointsTests
                 "removeImage"
             }
         };
+
+        form.Add(new StringContent(notes ?? ""), "notes");
+        form.Add(new StringContent(sourceUrl ?? ""), "sourceUrl");
+        form.Add(new StringContent(tags ?? ""), "tags");
+        form.Add(new StringContent(isFavorite.ToString().ToLowerInvariant()), "isFavorite");
 
         if (image is not null)
         {
@@ -405,6 +476,14 @@ public sealed class MealsEndpointsTests
         return document.RootElement.GetProperty("code").GetString();
     }
 
-    private sealed record MealResponse(string Id, string Name, string Emoji, string? ImageUrl);
+    private sealed record MealResponse(
+        string Id,
+        string Name,
+        string Emoji,
+        string? ImageUrl,
+        string Notes,
+        string? SourceUrl,
+        IReadOnlyList<string> Tags,
+        bool IsFavorite);
     private sealed record ScheduleResponse(IReadOnlyDictionary<string, string> Days);
 }

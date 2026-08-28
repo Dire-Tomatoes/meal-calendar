@@ -24,15 +24,32 @@ partial class MealCalendarDbContextModelSnapshot : ModelSnapshot
 
             b.Property<string>("Emoji")
                 .IsRequired()
-                .HasMaxLength(16)
+                .HasMaxLength(64)
                 .HasColumnType("TEXT");
 
             b.Property<string>("ImagePath")
                 .HasColumnType("TEXT");
 
+            b.Property<bool>("IsFavorite")
+                .HasColumnType("INTEGER");
+
             b.Property<string>("Name")
                 .IsRequired()
                 .HasMaxLength(120)
+                .HasColumnType("TEXT");
+
+            b.Property<string>("Notes")
+                .IsRequired()
+                .HasMaxLength(2000)
+                .HasColumnType("TEXT");
+
+            b.Property<string>("SourceUrl")
+                .HasMaxLength(500)
+                .HasColumnType("TEXT");
+
+            b.Property<string>("Tags")
+                .IsRequired()
+                .HasMaxLength(309)
                 .HasColumnType("TEXT");
 
             b.HasKey("Id");

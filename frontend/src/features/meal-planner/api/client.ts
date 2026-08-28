@@ -101,6 +101,10 @@ export interface RecipeFormValues {
   emoji: string;
   image: File | null;
   removeImage: boolean;
+  notes?: string;
+  sourceUrl?: string;
+  tags?: string[];
+  isFavorite?: boolean;
 }
 
 function recipeFormData(values: RecipeFormValues): FormData {
@@ -108,6 +112,10 @@ function recipeFormData(values: RecipeFormValues): FormData {
   form.append("name", values.name);
   form.append("emoji", values.emoji);
   form.append("removeImage", String(values.removeImage));
+  form.append("notes", values.notes ?? "");
+  form.append("sourceUrl", values.sourceUrl ?? "");
+  form.append("tags", (values.tags ?? []).join(","));
+  form.append("isFavorite", String(values.isFavorite ?? false));
   if (values.image !== null) {
     form.append("image", values.image);
   }

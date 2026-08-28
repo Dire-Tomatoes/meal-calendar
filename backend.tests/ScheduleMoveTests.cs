@@ -33,14 +33,16 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
         Assert.Equal("tacos", days["2026-07-25"]);
     }
 
-    [Fact]
-    public async Task MovingAMealReplacesAnExistingDestinationAssignment()
+    [Theory]
+    [InlineData("pizza")]
+    [InlineData("tacos")]
+    public async Task MovingAMealSwapsAnExistingDestinationAssignment(string destinationMealId)
     {
         await EnsureDefaultMealsAsync(factory);
         using var client = factory.CreateClient();
         await ClearDatesAsync(client);
         await AssignAsync(client, "2026-07-24", "tacos");
-        await AssignAsync(client, "2026-07-25", "pizza");
+        await AssignAsync(client, "2026-07-25", destinationMealId);
 
         await AssertNoContentAsync(client.PostAsJsonAsync("/api/v1/schedule/move", new
         {
@@ -50,8 +52,19 @@ public sealed class ScheduleMoveTests(MealCalendarApiFactory factory) : IClassFi
 
         var days = await GetScheduleAsync(client);
 
-        Assert.DoesNotContain("2026-07-24", days.Keys);
+        Assert.Equal(destinationMealId, days["2026-07-24"]);
         Assert.Equal("tacos", days["2026-07-25"]);
+        Assert.Equal(2, days.Count);
+
+        await AssertNoContentAsync(client.PostAsJsonAsync("/api/v1/schedule/move", new
+        {
+            fromDate = "2026-07-25",
+            toDate = "2026-07-24"
+        }));
+
+        var restoredDays = await GetScheduleAsync(client);
+        Assert.Equal("tacos", restoredDays["2026-07-24"]);
+        Assert.Equal(destinationMealId, restoredDays["2026-07-25"]);
     }
 
     [Fact]

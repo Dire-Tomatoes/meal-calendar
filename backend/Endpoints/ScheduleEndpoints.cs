@@ -151,13 +151,15 @@ public static class ScheduleEndpoints
             if (destination is null)
             {
                 context.ScheduleDays.Add(new ScheduleDay { Date = toDate, MealId = source.MealId });
+                context.ScheduleDays.Remove(source);
             }
             else
             {
+                var displacedMealId = destination.MealId;
                 destination.MealId = source.MealId;
+                source.MealId = displacedMealId;
             }
 
-            context.ScheduleDays.Remove(source);
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 

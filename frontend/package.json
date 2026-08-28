@@ -16,6 +16,7 @@
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@tanstack/react-query": "^5.66.8",
+    "@twemoji/svg": "15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

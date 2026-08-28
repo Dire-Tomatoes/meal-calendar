@@ -124,7 +124,17 @@ Raw `http://UNRAID-IP:8080` on the LAN is an online-only browser fallback, not a
 
 Open `/recipes` to create, edit, and delete recipes. The recipe form accepts an optional JPEG, PNG, or WebP image up to 10 MiB, and existing images can be replaced or removed there. Uploaded files are assigned managed filenames, written to `/app/images`, and served under `/images/meals/`. Deleting a recipe also removes its scheduled uses and managed image.
 
-The calendar intentionally has no link to `/recipes`; enter that path directly when recipe administration is needed. If a recipe has no image or image loading fails, its emoji is shown instead.
+The calendar intentionally has no link to `/recipes`; enter that path directly when recipe administration is needed. Recipes can include notes, a source URL, tags, and a favorite marker. Admin search covers names, notes, and tags; the recipe shelf searches names and tags. Both offer favorites-only filtering, and admin cards offer quick favorite actions.
+
+If a recipe has no image or image loading fails, its bundled emoji artwork is shown instead of a device-font glyph. Enter 1–3 supported emojis, with optional spaces; they share one normal icon-sized area. The editor has a compact artwork preview and only shows a validation message for invalid input. Unsupported legacy values or failed artwork requests use a drawn plate. Artwork is self-hosted from `@twemoji/svg` 15.0.0, with notices at `/emoji-notices.txt`; no runtime CDN is required.
+
+The **Display** menu contains the browser-saved 4/5/6-week and Comfortable/Compact settings. On tablet-sized screens the searchable recipe shelf moves above the grid and scrolls horizontally. Mobile toolbar and compact shelf spacing adapt to narrow screens. The planner remains grid-only: no Agenda, Auto layout, day editor, suggestions, or calendar export are included.
+
+Dragging a scheduled meal onto another occupied date swaps both assignments atomically. Dragging to an empty date still moves it. Dragging from the shelf still assigns/replaces the destination, because there is no source date to swap back to.
+
+Back up the database before updating. Startup applies the recipe metadata migration and the metadata-only emoji length expansion to 64 UTF-16 units; existing SQLite data is preserved. Restart/rebuild an already-running backend after changing branches so it serves the promoted API behavior.
+
+The 2026-08-28 promotion includes experiment features 1, 2, 3, 10, 14, 15, 16, and 17 only. Features 4–9 and 11–13 are abandoned, including Surprise me (6). Feature 10 excludes the abandoned day editor and its bottom-sheet layout. The experiment branches are historical references, not a list of features waiting for promotion.
 
 ## Backup and restore
 

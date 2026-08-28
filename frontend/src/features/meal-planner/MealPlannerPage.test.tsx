@@ -137,12 +137,14 @@ describe("MealPlannerPage", () => {
   test("restores compact density and allows returning to comfortable", async () => {
     const view = renderPage();
     await screen.findAllByText("Tacos");
+    fireEvent.click(screen.getByText("Display", { exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "Compact" }));
     expect(screen.getByRole("main")).toHaveAttribute("data-density", "compact");
     expect(localStorage.getItem("meal-calendar-density")).toBe("compact");
     view.unmount();
     renderPage();
     await screen.findAllByText("Tacos");
+    fireEvent.click(screen.getByText("Display", { exact: true }));
     expect(screen.getByRole("button", { name: "Compact" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("main")).toHaveAttribute("data-density", "compact");
     fireEvent.click(screen.getByRole("button", { name: "Comfortable" }));
@@ -153,6 +155,7 @@ describe("MealPlannerPage", () => {
   test("persists the selected week count and restores hidden dates", async () => {
     const view = renderPage();
     await screen.findAllByText("Tacos");
+    fireEvent.click(screen.getByText("Display", { exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "4 weeks" }));
     expect(screen.getAllByRole("gridcell")).toHaveLength(28);
     expect(localStorage.getItem("meal-calendar-grid-weeks")).toBe("4");
@@ -160,6 +163,7 @@ describe("MealPlannerPage", () => {
     renderPage();
     await screen.findAllByText("Tacos");
     expect(screen.getAllByRole("gridcell")).toHaveLength(28);
+    fireEvent.click(screen.getByText("Display", { exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "5 weeks" }));
     expect(screen.getAllByRole("gridcell")).toHaveLength(35);
     fireEvent.click(screen.getByRole("button", { name: "6 weeks" }));

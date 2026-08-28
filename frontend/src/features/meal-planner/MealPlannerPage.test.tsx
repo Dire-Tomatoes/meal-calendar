@@ -134,6 +134,35 @@ describe("MealPlannerPage", () => {
     );
   }
 
+  test("all week counts include late-month today and query the entire displayed window", async () => {
+    vi.setSystemTime(new Date(2026, 7, 28, 12));
+    renderPage();
+    await screen.findByRole("grid");
+    fireEvent.click(screen.getByText("Display", { exact: true }));
+    for (const [count, from, to] of [
+      [4, "2026-08-16", "2026-09-12"],
+      [5, "2026-08-09", "2026-09-12"],
+      [6, "2026-08-09", "2026-09-19"]
+    ] as const) {
+      fireEvent.click(screen.getByRole("button", { name: `${count} weeks` }));
+      await waitFor(() => expect(screen.getAllByRole("gridcell")).toHaveLength(count * 7));
+      expect(screen.getByLabelText("Meal slot for 2026-08-28")).toHaveAttribute("data-today", "true");
+      expect(screen.getByLabelText(`Meal slot for ${from}`)).toBeInTheDocument();
+      expect(screen.getByLabelText(`Meal slot for ${to}`)).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/schedule?from=2026-08-09&to=2026-09-19", expect.anything());
+    }
+  });
+
+  test("the default Today view follows month rollover on refresh", async () => {
+    vi.setSystemTime(new Date(2026, 7, 31, 23, 59));
+    renderPage();
+    await screen.findByRole("grid");
+    vi.setSystemTime(new Date(2026, 8, 1, 0, 1));
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: ["schedule"] }); });
+    expect(await screen.findByRole("heading", { name: "September 2026" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Meal slot for 2026-09-01")).toHaveAttribute("data-today", "true");
+  });
+
   test("restores compact density and allows returning to comfortable", async () => {
     const view = renderPage();
     await screen.findAllByText("Tacos");
@@ -221,7 +250,7 @@ describe("MealPlannerPage", () => {
         .at(-1);
 
     expect(lastScheduleRequest()).toBe(
-      "/api/v1/schedule?from=2026-06-28&to=2026-08-08"
+      "/api/v1/schedule?from=2026-07-05&to=2026-08-15"
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
@@ -236,7 +265,7 @@ describe("MealPlannerPage", () => {
     await screen.findByRole("heading", { name: "July 2026" });
     await waitFor(() =>
       expect(lastScheduleRequest()).toBe(
-        "/api/v1/schedule?from=2026-06-28&to=2026-08-08"
+        "/api/v1/schedule?from=2026-07-05&to=2026-08-15"
       )
     );
 
@@ -252,7 +281,7 @@ describe("MealPlannerPage", () => {
     await screen.findByRole("heading", { name: "July 2026" });
     await waitFor(() =>
       expect(lastScheduleRequest()).toBe(
-        "/api/v1/schedule?from=2026-06-28&to=2026-08-08"
+        "/api/v1/schedule?from=2026-07-05&to=2026-08-15"
       )
     );
   });

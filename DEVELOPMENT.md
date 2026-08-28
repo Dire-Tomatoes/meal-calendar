@@ -53,9 +53,12 @@ Open the Vite URL printed in the terminal. Vite proxies `/api` and `/images` to 
 ## Test changes
 
 The planner toolbar offers 4, 5, or 6 visible weeks (6 by default).
-This preference is saved per browser. Shorter views show the first rows of
-the selected month and can omit later dates; choose 6 weeks to see them again.
-Hidden assignments are retained, and schedule query coverage is unchanged.
+This preference is saved per browser. The current-month view is centered on
+today's Sunday-first week: 4 weeks show one prior and two future weeks;
+5 weeks show two prior and two future weeks; 6 weeks show two prior and three
+future weeks. Other months start at their first calendar week. Today returns
+to the rolling view. Schedule queries cover the full rolling six-week span,
+so changing row count does not hide uncached assignments or require a refetch.
 
 Comfortable/Compact is a separate browser-saved preference. Comfortable keeps
 the original spacing; Compact reduces calendar cell, image, and recipe shelf

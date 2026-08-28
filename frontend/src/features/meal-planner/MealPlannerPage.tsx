@@ -54,9 +54,11 @@ function CalendarSkeleton() {
 }
 
 export function MealPlannerPage() {
-  const [visibleMonth, setVisibleMonth] = useState(() =>
-    firstOfMonth(new Date())
-  );
+  // Null follows today, including month rollover on the regular query refresh.
+  // A concrete month represents deliberate Previous/Next navigation.
+  const [browsedMonth, setVisibleMonth] = useState<Date | null>(null);
+  const today = new Date();
+  const visibleMonth = browsedMonth ?? firstOfMonth(today);
   const [activeDrag, setActiveDrag] = useState<MealDragData | null>(null);
   const [density, setDensity] = useState<DisplayDensity>(() =>
     initialDisplayDensity(localStorage.getItem("meal-calendar-density"))
@@ -64,7 +66,9 @@ export function MealPlannerPage() {
   const [gridWeekCount, setGridWeekCount] = useState<GridWeekCount>(() =>
     initialGridWeekCount(localStorage.getItem("meal-calendar-grid-weeks"))
   );
-  const range = useMemo(() => getGridRange(visibleMonth), [visibleMonth]);
+  // The six-week span contains every selectable window. Keep cached coverage
+  // stable when changing row count instead of blanking the grid for a refetch.
+  const range = getGridRange(visibleMonth, 6, today);
   const mealsQuery = useMeals();
   const scheduleQuery = useSchedule(range);
   const mutations = useScheduleMutations();
@@ -176,7 +180,7 @@ export function MealPlannerPage() {
             new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1)
           )
         }
-        onToday={() => setVisibleMonth(firstOfMonth(new Date()))}
+        onToday={() => setVisibleMonth(null)}
         onNext={() =>
           setVisibleMonth(
             new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1)
@@ -212,6 +216,7 @@ export function MealPlannerPage() {
           <div className="planner-layout">
             <div className="calendar-panel">
               <MonthCalendar
+                today={today}
                 weekCount={gridWeekCount}
                 month={visibleMonth}
                 mealsByDate={mealsByDate}

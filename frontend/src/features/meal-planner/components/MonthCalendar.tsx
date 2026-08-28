@@ -16,11 +16,12 @@ const weekdays = [
 interface MonthCalendarProps {
   month: Date;
   weekCount?: GridWeekCount;
+  today?: Date;
   mealsByDate: Partial<Record<DateKey, Meal>>;
 }
 
-export function MonthCalendar({ month, mealsByDate, weekCount = 6 }: MonthCalendarProps) {
-  const days = getMonthGrid(month);
+export function MonthCalendar({ month, mealsByDate, weekCount = 6, today = new Date() }: MonthCalendarProps) {
+  const days = getMonthGrid(month, weekCount, today);
   const weeks = Array.from({ length: weekCount }, (_, weekIndex) =>
     days.slice(weekIndex * 7, weekIndex * 7 + 7)
   );

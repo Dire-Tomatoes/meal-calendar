@@ -1,4 +1,5 @@
 import type { DateKey, DateRange } from "./types";
+import type { GridWeekCount } from "./gridWeekCount";
 
 const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -32,19 +33,20 @@ export function fromDateKey(dateKey: DateKey): Date {
   return date;
 }
 
-export function getMonthGrid(month: Date): DateKey[] {
-  const year = month.getFullYear();
-  const monthIndex = month.getMonth();
-  const firstOfMonth = new Date(year, monthIndex, 1);
-  const firstGridDay = 1 - firstOfMonth.getDay();
+export function getMonthGrid(month: Date, weekCount: GridWeekCount = 6, today?: Date): DateKey[] {
+  const isCurrentMonth = today !== undefined &&
+    month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
+  const anchor = isCurrentMonth ? today : new Date(month.getFullYear(), month.getMonth(), 1);
+  const priorWeeks = isCurrentMonth ? Math.floor((weekCount - 1) / 2) : 0;
+  const firstGridDay = anchor.getDate() - anchor.getDay() - priorWeeks * 7;
 
-  return Array.from({ length: 42 }, (_, offset) =>
-    toDateKey(new Date(year, monthIndex, firstGridDay + offset))
+  return Array.from({ length: weekCount * 7 }, (_, offset) =>
+    toDateKey(new Date(anchor.getFullYear(), anchor.getMonth(), firstGridDay + offset))
   );
 }
 
-export function getGridRange(month: Date): DateRange {
-  const grid = getMonthGrid(month);
+export function getGridRange(month: Date, weekCount: GridWeekCount = 6, today?: Date): DateRange {
+  const grid = getMonthGrid(month, weekCount, today);
 
   return { from: grid[0], to: grid[grid.length - 1] };
 }

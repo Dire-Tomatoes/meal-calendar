@@ -20,6 +20,7 @@ import { MealTile } from "./components/MealTile";
 import { MonthCalendar } from "./components/MonthCalendar";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { getGridRange } from "./model/calendar";
+import { initialDisplayDensity, type DisplayDensity } from "./model/displayDensity";
 import { initialGridWeekCount, type GridWeekCount } from "./model/gridWeekCount";
 import { resolveDragIntent } from "./model/dragIntent";
 import { dispatchScheduleCommand } from "./model/scheduleCommand";
@@ -57,6 +58,9 @@ export function MealPlannerPage() {
     firstOfMonth(new Date())
   );
   const [activeDrag, setActiveDrag] = useState<MealDragData | null>(null);
+  const [density, setDensity] = useState<DisplayDensity>(() =>
+    initialDisplayDensity(localStorage.getItem("meal-calendar-density"))
+  );
   const [gridWeekCount, setGridWeekCount] = useState<GridWeekCount>(() =>
     initialGridWeekCount(localStorage.getItem("meal-calendar-grid-weeks"))
   );
@@ -150,11 +154,17 @@ export function MealPlannerPage() {
   return (
     <main
       className="planner-shell"
+      data-density={density}
       aria-busy={isSaving || undefined}
       data-offline={!isOnline || undefined}
       data-pending={isSaving || undefined}
     >
       <CalendarToolbar
+        density={density}
+        onDensityChange={(value) => {
+          localStorage.setItem("meal-calendar-density", value);
+          setDensity(value);
+        }}
         gridWeekCount={gridWeekCount}
         onGridWeekCountChange={(count) => {
           localStorage.setItem("meal-calendar-grid-weeks", String(count));

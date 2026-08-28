@@ -1,6 +1,9 @@
 import type { GridWeekCount } from "../model/gridWeekCount";
+import type { DisplayDensity } from "../model/displayDensity";
 
 interface CalendarToolbarProps {
+  density: DisplayDensity;
+  onDensityChange: (density: DisplayDensity) => void;
   gridWeekCount: GridWeekCount;
   onGridWeekCountChange: (count: GridWeekCount) => void;
   month: Date;
@@ -15,7 +18,9 @@ export function CalendarToolbar({
   onToday,
   onNext,
   gridWeekCount,
-  onGridWeekCountChange
+  onGridWeekCountChange,
+  density,
+  onDensityChange
 }: CalendarToolbarProps) {
   const monthLabel = month.toLocaleDateString(undefined, {
     month: "long",
@@ -42,6 +47,16 @@ export function CalendarToolbar({
             {count} weeks
           </button>
         ))}
+      </div>
+      <div className="density-switch" role="group" aria-label="Display density">
+        <button type="button" aria-pressed={density === "comfortable"}
+          onClick={() => onDensityChange("comfortable")}>
+          Comfortable
+        </button>
+        <button type="button" aria-pressed={density === "compact"}
+          onClick={() => onDensityChange("compact")}>
+          Compact
+        </button>
       </div>
     </header>
   );

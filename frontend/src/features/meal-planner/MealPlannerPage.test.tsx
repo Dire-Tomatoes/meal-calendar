@@ -134,6 +134,22 @@ describe("MealPlannerPage", () => {
     );
   }
 
+  test("restores compact density and allows returning to comfortable", async () => {
+    const view = renderPage();
+    await screen.findAllByText("Tacos");
+    fireEvent.click(screen.getByRole("button", { name: "Compact" }));
+    expect(screen.getByRole("main")).toHaveAttribute("data-density", "compact");
+    expect(localStorage.getItem("meal-calendar-density")).toBe("compact");
+    view.unmount();
+    renderPage();
+    await screen.findAllByText("Tacos");
+    expect(screen.getByRole("button", { name: "Compact" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("main")).toHaveAttribute("data-density", "compact");
+    fireEvent.click(screen.getByRole("button", { name: "Comfortable" }));
+    expect(screen.getByRole("main")).toHaveAttribute("data-density", "comfortable");
+    expect(screen.getAllByRole("gridcell")).toHaveLength(42);
+  });
+
   test("persists the selected week count and restores hidden dates", async () => {
     const view = renderPage();
     await screen.findAllByText("Tacos");

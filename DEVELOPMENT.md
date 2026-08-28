@@ -57,6 +57,10 @@ This preference is saved per browser. Shorter views show the first rows of
 the selected month and can omit later dates; choose 6 weeks to see them again.
 Hidden assignments are retained, and schedule query coverage is unchanged.
 
+Comfortable/Compact is a separate browser-saved preference. Comfortable keeps
+the original spacing; Compact reduces calendar cell, image, and recipe shelf
+spacing. Both modes work with all three week counts.
+
 Run both automated test suites:
 
 ```powershell
